@@ -6,8 +6,8 @@ import math # También necesitas math para la parte de advertencias
 # --- SECCIÓN DE INTERFAZ DE USUARIO CON STREAMLIT ---
 def main():
     st.set_page_config(layout="wide") # Para usar todo el ancho de la pantalla
-    st.title("✂️ Optimizador de Cortes de Material")
-    st.markdown("Esta herramienta te ayuda a calcular la forma más eficiente de cortar material lineal para minimizar desperdicios y la cantidad de rollos.")
+    st.title("✂️ Optimizador de Cortes de tiras Jenny")
+    st.markdown("Esta herramienta te ayuda a calcular la forma más eficiente de cortar tiras Jenny para minimizar desperdicios y la cantidad de rollos.")
 
     ROLLOS_DISPONIBLES = [5.0, 10.0, 40.0]
 
