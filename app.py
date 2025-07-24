@@ -10,7 +10,7 @@ def main():
     st.set_page_config(layout="wide") # Para usar todo el ancho de la pantalla
     try:
         imagen = Image.open("LOGO (1).png")  # Esta línea y la siguiente deben estar indentadas
-        st.image(imagen)
+        st.image(imagen, with=200)
     except FileNotFoundError:
         st.warning("No se encontró el archivo de imagen 'LOGO (1).png'.")
     
