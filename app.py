@@ -9,7 +9,7 @@ from PIL import Image  # Importa la librería PIL
 def main():
     st.set_page_config(layout="wide") # Para usar todo el ancho de la pantalla
     try:
-    imagen = Image.open("logo.png")  # Si está en la misma carpeta
+    imagen = Image.open("logo(1).png")  # Si está en la misma carpeta
     # Si está en una subcarpeta llamada 'images':
     # imagen = Image.open("images/logo.png")
     st.image(imagen)
