@@ -9,10 +9,10 @@ from PIL import Image  # Importa la librería PIL
 def main():
     st.set_page_config(layout="wide") # Para usar todo el ancho de la pantalla
     try:
-        imagen = Image.open("LOGO(1).png")  # Esta línea y la siguiente deben estar indentadas
+        imagen = Image.open("LOGO (1).png")  # Esta línea y la siguiente deben estar indentadas
         st.image(imagen)
     except FileNotFoundError:
-        st.warning("No se encontró el archivo de imagen 'LOGO(1).png'.")
+        st.warning("No se encontró el archivo de imagen 'LOGO (1).png'.")
     
         # ... el resto de tu código de la aplicación ...
     st.title("✂️ Optimizador de Cortes de tiras Jenny")
