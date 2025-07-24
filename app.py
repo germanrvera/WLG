@@ -2,10 +2,19 @@
 import streamlit as st
 from optimizador_logic import optimizar_cortes_para_un_largo_rollo # Importa tu función desde el otro archivo
 import math # También necesitas math para la parte de advertencias
+import pandas as pd
+from PIL import Image  # Importa la librería PIL
 
 # --- SECCIÓN DE INTERFAZ DE USUARIO CON STREAMLIT ---
 def main():
     st.set_page_config(layout="wide") # Para usar todo el ancho de la pantalla
+    try:
+    imagen = Image.open("logo.png")  # Si está en la misma carpeta
+    # Si está en una subcarpeta llamada 'images':
+    # imagen = Image.open("images/logo.png")
+    st.image(imagen)
+except FileNotFoundError:
+    st.warning("No se encontró el archivo de imagen 'logo.png'.")
     st.title("✂️ Optimizador de Cortes de tiras Jenny")
     st.markdown("Esta herramienta te ayuda a calcular la forma más eficiente de cortar tiras Jenny para minimizar desperdicios y la cantidad de rollos.")
 
