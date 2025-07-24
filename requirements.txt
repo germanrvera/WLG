@@ -1,3 +1,4 @@
 streamlit
 pulp
 pandas # Streamlit usa pandas para st.dataframe, así que lo incluimos
+pillow
