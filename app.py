@@ -9,12 +9,12 @@ from PIL import Image  # Importa la librería PIL
 def main():
     st.set_page_config(layout="wide") # Para usar todo el ancho de la pantalla
     try:
-    imagen = Image.open("LOGO(1).png")  # Si está en la misma carpeta
+        imagen = Image.open("LOGO(1).png")  # Si está en la misma carpeta
     # Si está en una subcarpeta llamada 'images':
     # imagen = Image.open("images/logo.png")
     st.image(imagen)
 except FileNotFoundError:
-    st.warning("No se encontró el archivo de imagen 'logo.png'.")
+        st.warning("No se encontró el archivo de imagen 'LOGO(1).png'.")
     st.title("✂️ Optimizador de Cortes de tiras Jenny")
     st.markdown("Esta herramienta te ayuda a calcular la forma más eficiente de cortar tiras Jenny para minimizar desperdicios y la cantidad de rollos.")
 
