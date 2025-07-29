@@ -15,7 +15,7 @@ def main():
         imagen = Image.open("LOGO (1).png")
         st.image(imagen, width=200) # Ajusta el ancho según sea necesario
     except FileNotFoundError:
-        st.warning("No se encontró el archivo de imagen 'LOGO (1).png'.")
+        st.warning("No se encontró el archivo de imagen 'LOGO(1).png'.")
     
     st.title("✂️ Optimizador de Cortes de Material")
     st.markdown("Esta herramienta te ayuda a calcular la forma más eficiente de cortar material lineal para minimizar desperdicios y la cantidad de rollos.")
@@ -66,12 +66,12 @@ def main():
             with col_del:
                 if st.button("🗑️ Eliminar", key=f"delete_cut_{largo}_{i}"):
                     del st.session_state.solicitudes_cortes_ingresadas[largo]
-                    st.experimental_rerun() 
+                    # st.experimental_rerun() # <--- LÍNEA ELIMINADA AQUÍ
         
         st.markdown("---") 
         if st.button("🗑️ Limpiar Todos los Cortes", key="clear_all_button"):
             st.session_state.solicitudes_cortes_ingresadas = {}
-            st.experimental_rerun() 
+            # st.experimental_rerun() # <--- LÍNEA ELIMINADA AQUÍ
     else:
         st.info("Aún no has añadido ningún corte.")
 
@@ -151,3 +151,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
