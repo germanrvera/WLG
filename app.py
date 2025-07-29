@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 from optimizador_logic import optimizar_cortes_para_un_largo_rollo
 import math
@@ -13,10 +12,10 @@ def main():
     
     # --- AGREGAR IMAGEN LOCAL ---
     try:
-        imagen = Image.open("LOGO(1).png")
+        imagen = Image.open("LOGO (1).png")
         st.image(imagen, width=200) # Ajusta el ancho según sea necesario
     except FileNotFoundError:
-        st.warning("No se encontró el archivo de imagen 'LOGO(1).png'.")
+        st.warning("No se encontró el archivo de imagen 'LOGO (1).png'.")
     
     st.title("✂️ Optimizador de Cortes de Material")
     st.markdown("Esta herramienta te ayuda a calcular la forma más eficiente de cortar material lineal para minimizar desperdicios y la cantidad de rollos.")
