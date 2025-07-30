@@ -12,7 +12,7 @@ def main():
     
     # --- AGREGAR IMAGEN LOCAL ---
     try:
-        imagen = Image.open("LOGO (1).png")
+        imagen = Image.open("LOGO(1).png")
         st.image(imagen, width=200) # Ajusta el ancho según sea necesario
     except FileNotFoundError:
         st.warning("No se encontró el archivo de imagen 'LOGO(1).png'.")
@@ -36,12 +36,32 @@ def main():
 
     if 'solicitudes_cortes_ingresadas' not in st.session_state:
         st.session_state.solicitudes_cortes_ingresadas = {}
+    
+    # --- Inicializar o reiniciar los valores de los inputs en session_state ---
+    if 'current_largo_input_value' not in st.session_state:
+        st.session_state.current_largo_input_value = 0.1
+    if 'current_cantidad_input_value' not in st.session_state:
+        st.session_state.current_cantidad_input_value = 1
 
     col1, col2, col3 = st.columns([0.4, 0.4, 0.2])
     with col1:
-        largo_input = st.number_input("Largo del Corte (metros)", min_value=0.01, value=0.1, step=0.1, key="largo_input")
+        # Usamos el valor de session_state para controlar el input
+        largo_input = st.number_input(
+            "Largo del Corte (metros)", 
+            min_value=0.01, 
+            value=st.session_state.current_largo_input_value, # <--- CONTROLADO POR SESSION_STATE
+            step=0.1, 
+            key="largo_input"
+        )
     with col2:
-        cantidad_input = st.number_input("Cantidad Solicitada", min_value=1, value=1, step=1, key="cantidad_input")
+        # Usamos el valor de session_state para controlar el input
+        cantidad_input = st.number_input(
+            "Cantidad Solicitada", 
+            min_value=1, 
+            value=st.session_state.current_cantidad_input_value, # <--- CONTROLADO POR SESSION_STATE
+            step=1, 
+            key="cantidad_input"
+        )
     with col3:
         st.write("") 
         st.write("")
@@ -50,6 +70,11 @@ def main():
                 st.session_state.solicitudes_cortes_ingresadas[largo_input] = \
                     st.session_state.solicitudes_cortes_ingresadas.get(largo_input, 0) + cantidad_input
                 st.success(f"Se añadió {cantidad_input} cortes de {largo_input}m.")
+                
+                # --- REINICIAR LOS VALORES DE LOS INPUTS DESPUÉS DE AÑADIR ---
+                st.session_state.current_largo_input_value = 0.1 # Vuelve al valor por defecto
+                st.session_state.current_cantidad_input_value = 1 # Vuelve al valor por defecto
+                st.experimental_rerun() # Forzar la recarga para que los inputs se actualicen
             else:
                 st.error("Por favor, ingresa valores positivos para largo y cantidad.")
     
@@ -66,28 +91,34 @@ def main():
             with col_del:
                 if st.button("🗑️ Eliminar", key=f"delete_cut_{largo}_{i}"):
                     del st.session_state.solicitudes_cortes_ingresadas[largo]
-                    # st.experimental_rerun() # <--- LÍNEA ELIMINADA AQUÍ
+                    st.experimental_rerun() # Recargar la app para que la lista se actualice
         
         st.markdown("---") 
         if st.button("🗑️ Limpiar Todos los Cortes", key="clear_all_button"):
             st.session_state.solicitudes_cortes_ingresadas = {}
-            # st.experimental_rerun() # <--- LÍNEA ELIMINADA AQUÍ
+            # --- Reiniciar también los inputs al limpiar todo ---
+            st.session_state.current_largo_input_value = 0.1
+            st.session_state.current_cantidad_input_value = 1
+            st.experimental_rerun() # Forzar la recarga para que los inputs se actualicen
     else:
         st.info("Aún no has añadido ningún corte.")
 
     # --- La sección "4. Configuración de Fuentes LED" ha sido eliminada ---
 
     # --- SLIDER PARA CONTROLAR EL LÍMITE DE PATRONES ---
-    st.header("3. Opciones Avanzadas de Optimización") # <--- NUMERACIÓN AJUSTADA
+    st.header("3. Opciones Avanzadas de Optimización") 
     max_items_per_pattern = st.slider(
         "Máximo de piezas por patrón de corte (para rendimiento)",
-        min_value=5, max_value=25, value=15, step=1,
-        help="Controla la complejidad de los patrones de corte. Un número más bajo (ej. 5-10) es más rápido pero podría ser menos óptimo. Un número más alto (ej. 20-25) es más lento pero puede encontrar mejores soluciones para muchos cortes pequeños. Si la aplicación se cuelga, reduce este valor.",
-        key="max_pattern_items_slider" 
+        min_value=3, 
+        max_value=15, 
+        value=8,      
+        step=1,
+        help="Controla la complejidad de los patrones de corte. Un número más bajo (ej. 3-8) es mucho más rápido y estable para muchos cortes, pero podría ser ligeramente menos óptimo. Un número más alto (ej. 10-15) es más lento pero puede encontrar soluciones con menos desperdicio. Si la aplicación se cuelga, reduce este valor."
+        ,key="max_pattern_items_slider" 
     )
 
-    st.header("4. Ejecutar Optimización") # <--- NUMERACIÓN Y TEXTO AJUSTADOS
-    if st.button("🚀 Optimizar Cortes", key="optimize_button"): # <--- TEXTO DEL BOTÓN AJUSTADO
+    st.header("4. Ejecutar Optimización") 
+    if st.button("🚀 Optimizar Cortes", key="optimize_button"): 
         if not st.session_state.solicitudes_cortes_ingresadas:
             st.warning("Por favor, añade al menos un corte antes de optimizar.")
         else:
@@ -115,8 +146,6 @@ def main():
                     for adv in advertencias_cortes_grandes:
                         st.write(f"  - Solicitud: **{adv['cantidad']}x de {adv['largo']:.1f}m.**")
                     
-                # --- La sección de Cálculo de Fuentes ha sido eliminada ---
-                
                 st.markdown("---") 
 
                 st.subheader("--- Detalle de cómo se usarán los rollos ---")
@@ -151,4 +180,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
