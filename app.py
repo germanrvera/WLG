@@ -7,6 +7,31 @@ from PIL import Image # Necesario para cargar la imagen
 
 # --- La función obtener_fuente_adecuada ha sido eliminada ---
 
+# --- Funciones de Callback para los botones ---
+def add_cut_callback():
+    # Acceder a los valores de los inputs usando sus keys
+    largo = st.session_state.largo_input
+    cantidad = st.session_state.cantidad_input
+
+    if largo > 0 and cantidad > 0:
+        st.session_state.solicitudes_cortes_ingresadas[largo] = \
+            st.session_state.solicitudes_cortes_ingresadas.get(largo, 0) + cantidad
+        st.success(f"Se añadió {cantidad} cortes de {largo}m.")
+        
+        # Reiniciar los valores en session_state que controlan los inputs
+        st.session_state.current_largo_input_value = 0.1 
+        st.session_state.current_cantidad_input_value = 1
+        # No se necesita st.experimental_rerun() aquí; el on_click ya fuerza una recarga.
+    else:
+        st.error("Por favor, ingresa valores positivos para largo y cantidad.")
+
+def clear_all_cuts_callback():
+    st.session_state.solicitudes_cortes_ingresadas = {}
+    # Reiniciar también los inputs al limpiar todo
+    st.session_state.current_largo_input_value = 0.1
+    st.session_state.current_cantidad_input_value = 1
+    # No se necesita st.experimental_rerun() aquí.
+
 def main():
     st.set_page_config(layout="wide") # Para usar todo el ancho de la pantalla
     
@@ -38,6 +63,7 @@ def main():
         st.session_state.solicitudes_cortes_ingresadas = {}
     
     # --- Inicializar o reiniciar los valores de los inputs en session_state ---
+    # Esto asegura que los valores se mantengan entre recargas o se reinicien si no existen
     if 'current_largo_input_value' not in st.session_state:
         st.session_state.current_largo_input_value = 0.1
     if 'current_cantidad_input_value' not in st.session_state:
@@ -65,18 +91,8 @@ def main():
     with col3:
         st.write("") 
         st.write("")
-        if st.button("➕ Añadir Corte", key="add_button"):
-            if largo_input > 0 and cantidad_input > 0:
-                st.session_state.solicitudes_cortes_ingresadas[largo_input] = \
-                    st.session_state.solicitudes_cortes_ingresadas.get(largo_input, 0) + cantidad_input
-                st.success(f"Se añadió {cantidad_input} cortes de {largo_input}m.")
-                
-                # --- REINICIAR LOS VALORES DE LOS INPUTS DESPUÉS DE AÑADIR ---
-                st.session_state.current_largo_input_value = 0.1 # Vuelve al valor por defecto
-                st.session_state.current_cantidad_input_value = 1 # Vuelve al valor por defecto
-                # st.experimental_rerun() # <--- LÍNEA ELIMINADA AQUÍ
-            else:
-                st.error("Por favor, ingresa valores positivos para largo y cantidad.")
+        # El botón ahora usa un callback on_click
+        st.button("➕ Añadir Corte", key="add_button", on_click=add_cut_callback)
     
     st.subheader("Cortes Actuales:")
     if st.session_state.solicitudes_cortes_ingresadas:
@@ -94,12 +110,8 @@ def main():
                     st.experimental_rerun() # Recargar la app para que la lista se actualice (a veces necesario para elementos dinámicos)
         
         st.markdown("---") 
-        if st.button("🗑️ Limpiar Todos los Cortes", key="clear_all_button"):
-            st.session_state.solicitudes_cortes_ingresadas = {}
-            # --- Reiniciar también los inputs al limpiar todo ---
-            st.session_state.current_largo_input_value = 0.1
-            st.session_state.current_cantidad_input_value = 1
-            # st.experimental_rerun() # <--- LÍNEA ELIMINADA AQUÍ
+        # El botón ahora usa un callback on_click
+        st.button("🗑️ Limpiar Todos los Cortes", key="clear_all_button", on_click=clear_all_cuts_callback)
     else:
         st.info("Aún no has añadido ningún corte.")
 
@@ -110,10 +122,10 @@ def main():
     max_items_per_pattern = st.slider(
         "Máximo de piezas por patrón de corte (para rendimiento)",
         min_value=3, 
-        max_value=15, 
+        max_value=20, # <--- VALOR MÁXIMO AJUSTADO A 20
         value=8,      
         step=1,
-        help="Controla la complejidad de los patrones de corte. Un número más bajo (ej. 3-8) es mucho más rápido y estable para muchos cortes, pero podría ser ligeramente menos óptimo. Un número más alto (ej. 10-15) es más lento pero puede encontrar soluciones con menos desperdicio. Si la aplicación se cuelga, reduce este valor."
+        help="Controla la complejidad de los patrones de corte. Un número más bajo (ej. 3-8) es mucho más rápido y estable para muchos cortes, pero podría ser ligeramente menos óptimo. Un número más alto (ej. 10-20) es más lento pero puede encontrar soluciones con menos desperdicio. Si la aplicación se cuelga, reduce este valor."
         ,key="max_pattern_items_slider" 
     )
 
@@ -172,7 +184,7 @@ def main():
                 st.markdown("Esto puede ocurrir si la suma total de material solicitado (incluyendo cortes grandes y pequeños) excede lo que un número razonable de rollos puede proveer, o si no hay patrones de corte válidos.")
                 if advertencias_cortes_grandes:
                     st.markdown("\nConsidera que los siguientes cortes individuales son más grandes que el rollo seleccionado:")
-                    for corte_grande_info in advertencias_cortas_grandes:
+                    for corte_grande_info in advertencias_cortes_grandes: # Corregido: advertencias_cortas_grandes -> advertencias_cortes_grandes
                         st.write(f"  - Solicitud: **{corte_grande_info['cantidad']}x de {corte_grande_info['largo']:.1f}m.**")
             else:
                 st.error(f"No se pudo encontrar una solución óptima para los cortes solicitados. Estado del optimizador: **{estado}**")
