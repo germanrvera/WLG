@@ -107,7 +107,7 @@ def main():
             with col_del:
                 if st.button("🗑️ Eliminar", key=f"delete_cut_{largo}_{i}"):
                     del st.session_state.solicitudes_cortes_ingresadas[largo]
-                    st.experimental_rerun() # Recargar la app para que la lista se actualice (a veces necesario para elementos dinámicos)
+                    # st.experimental_rerun() # <--- LÍNEA ELIMINADA AQUÍ
         
         st.markdown("---") 
         # El botón ahora usa un callback on_click
@@ -184,7 +184,7 @@ def main():
                 st.markdown("Esto puede ocurrir si la suma total de material solicitado (incluyendo cortes grandes y pequeños) excede lo que un número razonable de rollos puede proveer, o si no hay patrones de corte válidos.")
                 if advertencias_cortes_grandes:
                     st.markdown("\nConsidera que los siguientes cortes individuales son más grandes que el rollo seleccionado:")
-                    for corte_grande_info in advertencias_cortes_grandes: # Corregido: advertencias_cortas_grandes -> advertencias_cortes_grandes
+                    for corte_grande_info in advertencias_cortes_grandes: 
                         st.write(f"  - Solicitud: **{corte_grande_info['cantidad']}x de {corte_grande_info['largo']:.1f}m.**")
             else:
                 st.error(f"No se pudo encontrar una solución óptima para los cortes solicitados. Estado del optimizador: **{estado}**")
