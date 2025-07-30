@@ -325,41 +325,6 @@ def main():
     else:
         st.info("Aún no has añadido ningún corte.")
 
-    # --- SECCIÓN PARA LA CONFIGURACIÓN DE FUENTES DE PODER ---
-    st.header("3. Configuración de Fuentes LED") 
-    st.markdown("Ingresa el consumo de la tira LED y las potencias de las fuentes disponibles.")
-
-    watts_por_metro_tira = st.number_input(
-        "Consumo de la Tira LED (Watts por metro - W/m)",
-        min_value=1.0, value=10.0, step=0.5,
-        help="Ej. 10 W/m, 14.4 W/m, 20 W/m",
-        key="watts_per_meter_input" 
-    )
-
-    st.markdown("Ingresa las potencias de las fuentes disponibles (en Watts), separadas por comas. Ej: `30, 36, 40, 60, 100, 120, 150, 240, 320, 360`")
-    fuentes_disponibles_str = st.text_input(
-        "Potencias de Fuentes de Poder Disponibles (Watts)", 
-        value="30, 36, 40, 60, 100, 120, 150, 240, 320, 360", 
-        help="Las fuentes se eligen con un 20% de factor de seguridad por encima del consumo real."
-        ,key="available_sources_input" 
-    )
-    
-    st.info("💡 **Importante:** Cada modelo de fuente de poder tiene un **máximo de tiras o metros que puede alimentar**, lo cual se detalla en su ficha técnica. Considera esta información al seleccionar las fuentes.")
-
-    factor_seguridad_fuentes = st.slider(
-        "Factor de Seguridad para Fuentes (%)",
-        min_value=5, max_value=50, value=20, step=5,
-        help="El consumo real de la tira se multiplicará por este porcentaje extra para elegir una fuente que no trabaje al límite. Ej: 20% significa Consumo * 1.20"
-        ,key="safety_factor_slider" 
-    ) / 100 + 1
-
-    st.subheader("Modo de Asignación de Fuentes")
-    modo_asignacion_fuentes = st.radio(
-        "¿Cómo deseas asignar las fuentes de poder?",
-        ("Una fuente por cada corte", "Optimizar fuentes para agrupar cortes"),
-        key="modo_asignacion_fuentes_radio"
-    )
-
     # --- SLIDER PARA CONTROLAR EL LÍMITE DE PATRONES ---
     st.header("4. Opciones Avanzadas de Optimización") 
     max_items_per_pattern = st.slider(
@@ -444,38 +409,75 @@ def main():
             else:
                 st.info("  No se generaron detalles de cortes por rollo.")
 
-            # --- BOTÓN PARA CALCULAR FUENTES (Solo si la optimización de cortes fue exitosa) ---
-            st.header("6. Cálculo de Fuentes (Opcional)") # <--- TÍTULO ACTUALIZADO AQUÍ
-            st.markdown("Una vez optimizados los cortes, puedes calcular las fuentes de poder para tus tiras LED.")
-            st.button("💡 Calcular Fuentes", key="calculate_sources_button", on_click=calculate_sources_callback)
+            # --- NUEVO INTERRUPTOR PARA ACTIVAR/DESACTIVAR EL CÁLCULO DE FUENTES ---
+            st.markdown("---")
+            st.toggle("Deseo calcular las fuentes de poder para mis tiras LED (Opcional)", key="enable_source_calculation_toggle", value=True) # Valor por defecto a True
 
-            # --- Mostrar Resultados de Cálculo de Fuentes (si están disponibles) ---
-            if 'source_calculation_results' in st.session_state and st.session_state.source_calculation_results:
-                source_results = st.session_state.source_calculation_results
-                modo = source_results["mode"]
-                total_fuentes = source_results["total_fuentes"]
-                detalles_fuentes = source_results["detalles"]
+            # --- SECCIÓN PARA LA CONFIGURACIÓN Y CÁLCULO DE FUENTES DE PODER (CONDICIONAL) ---
+            if st.session_state.enable_source_calculation_toggle:
+                st.header("6. Configuración y Cálculo de Fuentes") # <--- TÍTULO AJUSTADO
+                st.markdown("Ingresa el consumo de la tira LED y las potencias de las fuentes disponibles.")
 
-                st.subheader("--- Resultado del Cálculo de Fuentes de Poder ---")
-                if modo == "individual":
-                    st.markdown("Se asigna una fuente de poder por cada corte solicitado.")
-                    if detalles_fuentes:
-                        st.dataframe(pd.DataFrame(detalles_fuentes), use_container_width=True)
-                        st.subheader("Resumen de Fuentes de Poder Necesarias (Individual):")
-                        for fuente_w, cantidad in sorted(total_fuentes.items()):
-                            st.write(f"- Fuentes de **{fuente_w:.0f}W**: **{cantidad} unidades**")
-                    else:
-                        st.info("No se pudieron calcular las fuentes de poder en modo individual.")
-                elif modo == "grouped":
-                    st.markdown("Se optimiza la asignación de fuentes para agrupar varios cortes en una misma fuente, minimizando el número total de fuentes.")
-                    if detalles_fuentes:
-                        st.dataframe(pd.DataFrame(detalles_fuentes), use_container_width=True)
-                        st.subheader("Resumen de Fuentes de Poder Necesarias (Agrupado):")
-                        for fuente_w, cantidad in sorted(total_fuentes.items()):
-                            st.write(f"- Fuentes de **{fuente_w:.0f}W**: **{cantidad} unidades**")
-                    else:
-                        st.info("No se pudieron calcular las fuentes de poder en modo agrupado.")
-                st.markdown("---") 
+                watts_por_metro_tira = st.number_input(
+                    "Consumo de la Tira LED (Watts por metro - W/m)",
+                    min_value=1.0, value=10.0, step=0.5,
+                    help="Ej. 10 W/m, 14.4 W/m, 20 W/m",
+                    key="watts_per_meter_input" 
+                )
+
+                st.markdown("Ingresa las potencias de las fuentes disponibles (en Watts), separadas por comas. Ej: `30, 36, 40, 60, 100, 120, 150, 240, 320, 360`")
+                fuentes_disponibles_str = st.text_input(
+                    "Potencias de Fuentes de Poder Disponibles (Watts)", 
+                    value="30, 36, 40, 60, 100, 120, 150, 240, 320, 360", 
+                    help="Las fuentes se eligen con un 20% de factor de seguridad por encima del consumo real."
+                    ,key="available_sources_input" 
+                )
+                
+                st.info("💡 **Importante:** Cada modelo de fuente de poder tiene un **máximo de tiras o metros que puede alimentar**, lo cual se detalla en su ficha técnica. Considera esta información al seleccionar las fuentes.")
+
+                factor_seguridad_fuentes = st.slider(
+                    "Factor de Seguridad para Fuentes (%)",
+                    min_value=5, max_value=50, value=20, step=5,
+                    help="El consumo real de la tira se multiplicará por este porcentaje extra para elegir una fuente que no trabaje al límite. Ej: 20% significa Consumo * 1.20"
+                    ,key="safety_factor_slider" 
+                ) / 100 + 1
+
+                st.subheader("Modo de Asignación de Fuentes")
+                modo_asignacion_fuentes = st.radio(
+                    "¿Cómo deseas asignar las fuentes de poder?",
+                    ("Una fuente por cada corte", "Optimizar fuentes para agrupar cortes"),
+                    key="modo_asignacion_fuentes_radio"
+                )
+
+                st.button("💡 Calcular Fuentes", key="calculate_sources_button", on_click=calculate_sources_callback)
+
+                # --- Mostrar Resultados de Cálculo de Fuentes (si están disponibles) ---
+                if 'source_calculation_results' in st.session_state and st.session_state.source_calculation_results:
+                    source_results = st.session_state.source_calculation_results
+                    modo = source_results["mode"]
+                    total_fuentes = source_results["total_fuentes"]
+                    detalles_fuentes = source_results["detalles"]
+
+                    st.subheader("--- Resultado del Cálculo de Fuentes de Poder ---")
+                    if modo == "individual":
+                        st.markdown("Se asigna una fuente de poder por cada corte solicitado.")
+                        if detalles_fuentes:
+                            st.dataframe(pd.DataFrame(detalles_fuentes), use_container_width=True)
+                            st.subheader("Resumen de Fuentes de Poder Necesarias (Individual):")
+                            for fuente_w, cantidad in sorted(total_fuentes.items()):
+                                st.write(f"- Fuentes de **{fuente_w:.0f}W**: **{cantidad} unidades**")
+                        else:
+                            st.info("No se pudieron calcular las fuentes de poder en modo individual.")
+                    elif modo == "grouped":
+                        st.markdown("Se optimiza la asignación de fuentes para agrupar varios cortes en una misma fuente, minimizando el número total de fuentes.")
+                        if detalles_fuentes:
+                            st.dataframe(pd.DataFrame(detalles_fuentes), use_container_width=True)
+                            st.subheader("Resumen de Fuentes de Poder Necesarias (Agrupado):")
+                            for fuente_w, cantidad in sorted(total_fuentes.items()):
+                                st.write(f"- Fuentes de **{fuente_w:.0f}W**: **{cantidad} unidades**")
+                        else:
+                            st.info("No se pudieron calcular las fuentes de poder en modo agrupado.")
+                    st.markdown("---") 
 
         elif estado == 'Infeasible':
             st.error("\nLa solución es **INFACTIBLE**.")
@@ -491,4 +493,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
