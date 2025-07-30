@@ -74,7 +74,7 @@ def main():
                 # --- REINICIAR LOS VALORES DE LOS INPUTS DESPUÉS DE AÑADIR ---
                 st.session_state.current_largo_input_value = 0.1 # Vuelve al valor por defecto
                 st.session_state.current_cantidad_input_value = 1 # Vuelve al valor por defecto
-                st.experimental_rerun() # Forzar la recarga para que los inputs se actualicen
+                # st.experimental_rerun() # <--- LÍNEA ELIMINADA AQUÍ
             else:
                 st.error("Por favor, ingresa valores positivos para largo y cantidad.")
     
@@ -91,7 +91,7 @@ def main():
             with col_del:
                 if st.button("🗑️ Eliminar", key=f"delete_cut_{largo}_{i}"):
                     del st.session_state.solicitudes_cortes_ingresadas[largo]
-                    st.experimental_rerun() # Recargar la app para que la lista se actualice
+                    st.experimental_rerun() # Recargar la app para que la lista se actualice (a veces necesario para elementos dinámicos)
         
         st.markdown("---") 
         if st.button("🗑️ Limpiar Todos los Cortes", key="clear_all_button"):
@@ -99,7 +99,7 @@ def main():
             # --- Reiniciar también los inputs al limpiar todo ---
             st.session_state.current_largo_input_value = 0.1
             st.session_state.current_cantidad_input_value = 1
-            st.experimental_rerun() # Forzar la recarga para que los inputs se actualicen
+            # st.experimental_rerun() # <--- LÍNEA ELIMINADA AQUÍ
     else:
         st.info("Aún no has añadido ningún corte.")
 
@@ -172,7 +172,7 @@ def main():
                 st.markdown("Esto puede ocurrir si la suma total de material solicitado (incluyendo cortes grandes y pequeños) excede lo que un número razonable de rollos puede proveer, o si no hay patrones de corte válidos.")
                 if advertencias_cortes_grandes:
                     st.markdown("\nConsidera que los siguientes cortes individuales son más grandes que el rollo seleccionado:")
-                    for corte_grande_info in advertencias_cortes_grandes:
+                    for corte_grande_info in advertencias_cortas_grandes:
                         st.write(f"  - Solicitud: **{corte_grande_info['cantidad']}x de {corte_grande_info['largo']:.1f}m.**")
             else:
                 st.error(f"No se pudo encontrar una solución óptima para los cortes solicitados. Estado del optimizador: **{estado}**")
