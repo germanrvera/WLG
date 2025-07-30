@@ -126,7 +126,6 @@ def optimizar_fuentes_para_cortes_agrupados(solicitudes_cortes, watts_por_metro_
     fuente_id_counter = 1
     for fuente_obj in fuentes_en_uso:
         cortes_str_list = [f"{c['largo']:.2f}m ({c['consumo_real']:.2f}W)" for c in fuente_obj["cortes_asignados"]]
-        # CORRECCIÓN AQUÍ: Cambiado "type" a "tipo"
         total_consumo_fuente = fuente_obj["tipo"] - fuente_obj["restante"] # Consumo total real en esta fuente
         
         detalles_finales_agrupados.append({
@@ -175,12 +174,12 @@ def main():
     except FileNotFoundError:
         st.warning("No se encontró el archivo de imagen 'LOGO (1).png'.") 
     
-    st.title("✂️ Optimizador de Cortes de Material")
+    st.title("✂️ Optimizador de cortes de tiras Jenny") 
     st.markdown("Esta herramienta te ayuda a calcular la forma más eficiente de cortar material lineal para minimizar desperdicios y la cantidad de rollos.")
 
     ROLLOS_DISPONIBLES = [5.0, 10.0, 40.0]
 
-    st.header("1. Selecciona el Rollo de Material")
+    st.header("1. Selecciona el rollo de Jenny") # <--- TEXTO ACTUALIZADO AQUÍ
     largo_rollo_seleccionado = st.selectbox(
         "Elige el largo del rollo que vas a utilizar (en metros):",
         options=ROLLOS_DISPONIBLES,
@@ -259,6 +258,10 @@ def main():
         ,key="available_sources_input" 
     )
     
+    # --- ALERTA DE INFORMACIÓN SOBRE LAS FUENTES ---
+    st.info("💡 **Importante:** Cada modelo de fuente de poder tiene un **máximo de tiras o metros que puede alimentar**, lo cual se detalla en su ficha técnica. Considera esta información al seleccionar las fuentes.")
+
+
     fuentes_disponibles_watts = []
     try:
         fuentes_disponibles_watts = sorted([float(w.strip()) for w in fuentes_disponibles_str.split(',') if w.strip()])
@@ -422,4 +425,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
