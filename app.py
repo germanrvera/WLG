@@ -126,7 +126,8 @@ def optimizar_fuentes_para_cortes_agrupados(solicitudes_cortes, watts_por_metro_
     fuente_id_counter = 1
     for fuente_obj in fuentes_en_uso:
         cortes_str_list = [f"{c['largo']:.2f}m ({c['consumo_real']:.2f}W)" for c in fuente_obj["cortes_asignados"]]
-        total_consumo_fuente = fuente_obj["type"] - fuente_obj["restante"] # Consumo total real en esta fuente
+        # CORRECCIÓN AQUÍ: Cambiado "type" a "tipo"
+        total_consumo_fuente = fuente_obj["tipo"] - fuente_obj["restante"] # Consumo total real en esta fuente
         
         detalles_finales_agrupados.append({
             "ID Fuente": f"F-{fuente_id_counter}",
