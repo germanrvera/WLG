@@ -32,12 +32,12 @@ def clear_all_cuts_callback():
     st.session_state.current_cantidad_input_value = 1
     # No se necesita st.experimental_rerun() aquí.
 
-# --- NUEVA FUNCIÓN DE CALLBACK PARA ELIMINAR UN CORTE ESPECÍFICO ---
+# --- FUNCIÓN DE CALLBACK PARA ELIMINAR UN CORTE ESPECÍFICO ---
 def delete_cut_callback(largo_to_delete):
     if largo_to_delete in st.session_state.solicitudes_cortes_ingresadas:
         del st.session_state.solicitudes_cortes_ingresadas[largo_to_delete]
-    # Forzar la recarga para que la lista se actualice inmediatamente
-    st.experimental_rerun() 
+    # st.experimental_rerun() # <--- LÍNEA ELIMINADA AQUÍ
+    # Streamlit debería detectar el cambio en st.session_state y recargar automáticamente.
 
 def main():
     st.set_page_config(layout="wide") # Para usar todo el ancho de la pantalla
