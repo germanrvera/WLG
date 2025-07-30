@@ -32,12 +32,19 @@ def clear_all_cuts_callback():
     st.session_state.current_cantidad_input_value = 1
     # No se necesita st.experimental_rerun() aquí.
 
+# --- NUEVA FUNCIÓN DE CALLBACK PARA ELIMINAR UN CORTE ESPECÍFICO ---
+def delete_cut_callback(largo_to_delete):
+    if largo_to_delete in st.session_state.solicitudes_cortes_ingresadas:
+        del st.session_state.solicitudes_cortes_ingresadas[largo_to_delete]
+    # Forzar la recarga para que la lista se actualice inmediatamente
+    st.experimental_rerun() 
+
 def main():
     st.set_page_config(layout="wide") # Para usar todo el ancho de la pantalla
     
     # --- AGREGAR IMAGEN LOCAL ---
     try:
-        imagen = Image.open("LOGO(1).png")
+        imagen = Image.open("LOGO (1).png")
         st.image(imagen, width=200) # Ajusta el ancho según sea necesario
     except FileNotFoundError:
         st.warning("No se encontró el archivo de imagen 'LOGO(1).png'.")
@@ -105,9 +112,8 @@ def main():
             with col_c:
                 st.write(f"**{cantidad} unidades**")
             with col_del:
-                if st.button("🗑️ Eliminar", key=f"delete_cut_{largo}_{i}"):
-                    del st.session_state.solicitudes_cortes_ingresadas[largo]
-                    # st.experimental_rerun() # <--- LÍNEA ELIMINADA AQUÍ
+                # El botón de eliminar ahora usa el nuevo callback con args
+                st.button("🗑️ Eliminar", key=f"delete_cut_{largo}_{i}", on_click=delete_cut_callback, args=(largo,))
         
         st.markdown("---") 
         # El botón ahora usa un callback on_click
