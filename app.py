@@ -226,6 +226,7 @@ def calculate_sources_callback():
                         "Consumo Total p/Corte (W)": f"{consumo_corte:.2f}",
                         "Consumo Ajustado (W)": f"{consumo_corte * factor_seguridad_fuentes:.2f}",
                         "Fuente Asignada (W)": "N/A",
+                        "Tipo Asignación": "No Asignada",
                         "Advertencia": advertencia_fuente if advertencia_fuente else "No se pudo asignar fuente."
                     })
             
@@ -444,7 +445,7 @@ def main():
                 st.info("  No se generaron detalles de cortes por rollo.")
 
             # --- BOTÓN PARA CALCULAR FUENTES (Solo si la optimización de cortes fue exitosa) ---
-            st.header("6. Calcular Fuentes Necesarias")
+            st.header("6. Cálculo de Fuentes (Opcional)") # <--- TÍTULO ACTUALIZADO AQUÍ
             st.markdown("Una vez optimizados los cortes, puedes calcular las fuentes de poder para tus tiras LED.")
             st.button("💡 Calcular Fuentes", key="calculate_sources_button", on_click=calculate_sources_callback)
 
@@ -490,3 +491,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
