@@ -263,7 +263,8 @@ def main():
     st.title("✂️ Optimizador de cortes de tiras Jenny") 
     st.markdown("Esta herramienta te ayuda a calcular la forma más eficiente de cortar material lineal para minimizar desperdicios y la cantidad de rollos.")
 
-    ROLLOS_DISPONIBLES = [5.0, 10.0, 40.0]
+    # --- LISTA DE ROLLOS ACTUALIZADA ---
+    ROLLOS_DISPONIBLES = [5.0, 10.0, 20.0, 40.0, 100.0] 
 
     st.header("1. Selecciona el rollo de Jenny") 
     largo_rollo_seleccionado = st.selectbox(
@@ -493,3 +494,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
