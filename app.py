@@ -254,17 +254,29 @@ def calculate_sources_callback():
 def main():
     st.set_page_config(layout="wide") 
     
+    # --- CSS para cambiar la fuente a Calibri ---
+    st.markdown(
+        """
+        <style>
+        html, body, [class*="st-"] {
+            font-family: Calibri, sans-serif;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    
     try:
         imagen = Image.open("LOGO (1).png") 
         st.image(imagen, width=200) 
     except FileNotFoundError:
         st.warning("No se encontró el archivo de imagen 'LOGO (1).png'.") 
     
-    st.title("✂️ Optimizador de cortes de tiras Jenny") 
+    st.title("Optimizador de cortes de tiras Jenny") # Sin icono de tijera
     st.markdown("Esta herramienta te ayuda a calcular la forma más eficiente de cortar material lineal para minimizar desperdicios y la cantidad de rollos.")
 
-    # --- LISTA DE ROLLOS ACTUALIZADA ---
-    ROLLOS_DISPONIBLES = [5.0, 10.0, 20.0, 40.0, 100.0] 
+    # --- LISTA DE ROLLOS ACTUALIZADA (sin 40.0 y 100.0) ---
+    ROLLOS_DISPONIBLES = [5.0, 10.0, 20.0] 
 
     st.header("1. Selecciona el rollo de Jenny") 
     largo_rollo_seleccionado = st.selectbox(
@@ -306,7 +318,7 @@ def main():
     with col3:
         st.write("") 
         st.write("")
-        st.button("➕ Añadir Corte", key="add_button", on_click=add_cut_callback)
+        st.button(" Añadir Corte", key="add_button", on_click=add_cut_callback) # Sin icono
     
     st.subheader("Cortes Actuales:")
     if st.session_state.solicitudes_cortes_ingresadas:
@@ -319,10 +331,10 @@ def main():
             with col_c:
                 st.write(f"**{cantidad} unidades**")
             with col_del:
-                st.button("🗑️ Eliminar", key=f"delete_cut_{largo}_{i}", on_click=delete_cut_callback, args=(largo,))
+                st.button(" Eliminar", key=f"delete_cut_{largo}_{i}", on_click=delete_cut_callback, args=(largo,)) # Sin icono
         
         st.markdown("---") 
-        st.button("🗑️ Limpiar Todos los Cortes", key="clear_all_button", on_click=clear_all_cuts_callback)
+        st.button(" Limpiar Todos los Cortes", key="clear_all_button", on_click=clear_all_cuts_callback) # Sin icono
     else:
         st.info("Aún no has añadido ningún corte.")
 
@@ -340,7 +352,7 @@ def main():
 
     # --- BOTÓN PRINCIPAL PARA OPTIMIZAR CORTES ---
     st.header("5. Ejecutar Optimización de Cortes") 
-    if st.button("🚀 Optimizar Cortes", key="optimize_cuts_button"): 
+    if st.button("Optimizar Cortes", key="optimize_cuts_button"): # Sin icono de cohete
         if not st.session_state.solicitudes_cortes_ingresadas:
             st.warning("Por favor, añade al menos un corte antes de optimizar.")
         else:
@@ -429,7 +441,7 @@ def main():
                 st.markdown("Ingresa las potencias de las fuentes disponibles (en Watts), separadas por comas. Ej: `30, 36, 40, 60, 100, 120, 150, 240, 320, 360`")
                 fuentes_disponibles_str = st.text_input(
                     "Potencias de Fuentes de Poder Disponibles (Watts)", 
-                    value="30, 36, 40, 60, 100, 120, 150, 240, 320, 360", 
+                    value="30, 36, 40, 60, 100, 120, 150, 240, 320, 360", # <--- FUENTES RESTAURADAS AQUÍ
                     help="Las fuentes se eligen con un 20% de factor de seguridad por encima del consumo real."
                     ,key="available_sources_input" 
                 )
@@ -494,5 +506,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
