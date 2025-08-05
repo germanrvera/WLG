@@ -254,32 +254,40 @@ def calculate_sources_callback():
 
 # --- FUNCIÓN DE CALLBACK PARA REINICIAR TODO ---
 def reset_all_callback():
-    # Reiniciar todas las variables de session_state a sus valores iniciales
-    st.session_state.solicitudes_cortes_ingresadas = {}
-    st.session_state.current_largo_input_value = 0.1
-    st.session_state.current_cantidad_input_value = 1
-    
-    if 'cut_optimization_results' in st.session_state:
-        del st.session_state.cut_optimization_results
-    if 'source_calculation_results' in st.session_state:
-        del st.session_state.source_calculation_results
-    
-    # Reiniciar valores de inputs de fuentes a sus defaults
-    st.session_state.watts_per_meter_input = 10.0
-    st.session_state.available_sources_input = "30, 36, 40, 60, 100, 120, 150, 240, 320, 360"
-    st.session_state.safety_factor_slider = 20
-    # Asegúrate de que esta clave exista en session_state antes de intentar acceder a ella
-    if 'modo_asignacion_fuentes_radio' in st.session_state:
-        st.session_state.modo_asignacion_fuentes_radio = "Una fuente por cada corte" # Asumiendo este como default
-    st.session_state.max_pattern_items_slider = 8
-    st.session_state.largo_rollo_selector = 5.0 # Asumiendo este como default
-    st.session_state.enable_source_calculation_toggle = True # Asumiendo este como default
-
-    # Forzar una recarga completa de la aplicación para reflejar el estado inicial
-    st.rerun() # CAMBIO: st.experimental_rerun() a st.rerun()
+    # Establecer una bandera en session_state para indicar que se debe reiniciar la aplicación
+    st.session_state.reset_app_flag = True
 
 
 def main():
+    # --- Lógica para reiniciar la aplicación si la bandera está activada ---
+    if 'reset_app_flag' not in st.session_state:
+        st.session_state.reset_app_flag = False
+
+    if st.session_state.reset_app_flag:
+        # Reiniciar todas las variables de session_state a sus valores iniciales
+        st.session_state.solicitudes_cortes_ingresadas = {}
+        st.session_state.current_largo_input_value = 0.1
+        st.session_state.current_cantidad_input_value = 1
+        
+        if 'cut_optimization_results' in st.session_state:
+            del st.session_state.cut_optimization_results
+        if 'source_calculation_results' in st.session_state:
+            del st.session_state.source_calculation_results
+        
+        # Reiniciar valores de inputs a sus defaults
+        st.session_state.watts_per_meter_input = 10.0
+        st.session_state.available_sources_input = "30, 36, 40, 60, 100, 120, 150, 240, 320, 360"
+        st.session_state.safety_factor_slider = 20
+        # Asegúrate de que esta clave exista en session_state antes de intentar acceder a ella
+        if 'modo_asignacion_fuentes_radio' in st.session_state:
+            st.session_state.modo_asignacion_fuentes_radio = "Una fuente por cada corte" # Asumiendo este como default
+        st.session_state.max_pattern_items_slider = 8
+        st.session_state.largo_rollo_selector = 5.0 # Asumiendo este como default
+        st.session_state.enable_source_calculation_toggle = True # Asumiendo este como default
+
+        st.session_state.reset_app_flag = False # Desactivar la bandera para evitar bucles
+        st.rerun() # Forzar una recarga completa de la aplicación
+
     st.set_page_config(layout="wide") 
     
     # --- CSS para cambiar la fuente a Calibri ---
@@ -528,7 +536,7 @@ def main():
             st.markdown("Esto puede ocurrir si la suma total de material solicitado (incluyendo cortes grandes y pequeños) excede lo que un número razonable de rollos puede proveer, o si no hay patrones de corte válidos.")
             if advertencias_cortes_grandes:
                 st.markdown("\nConsidera que los siguientes cortes individuales son más grandes que el rollo seleccionado:")
-                for corte_grande_info in advertencias_cortes_grandes: 
+                for corte_grande_info in advertencias_cortas_grandes: 
                     st.write(f"  - Solicitud: **{corte_grande_info['cantidad']}x de {corte_grande_info['largo']:.1f}m.**")
         else:
             st.error(f"No se pudo encontrar una solución óptima para los cortes solicitados. Estado del optimizador: **{estado}**")
@@ -541,6 +549,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
