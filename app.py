@@ -252,7 +252,7 @@ def calculate_sources_callback():
                 "detalles": detalles_agrupados_por_fuente
             }
 
-# --- NUEVA FUNCIÓN DE CALLBACK PARA REINICIAR TODO ---
+# --- FUNCIÓN DE CALLBACK PARA REINICIAR TODO ---
 def reset_all_callback():
     # Reiniciar todas las variables de session_state a sus valores iniciales
     st.session_state.solicitudes_cortes_ingresadas = {}
@@ -268,13 +268,15 @@ def reset_all_callback():
     st.session_state.watts_per_meter_input = 10.0
     st.session_state.available_sources_input = "30, 36, 40, 60, 100, 120, 150, 240, 320, 360"
     st.session_state.safety_factor_slider = 20
-    st.session_state.modo_asignacion_fuentes_radio = "Una fuente por cada corte" # Asumiendo este como default
+    # Asegúrate de que esta clave exista en session_state antes de intentar acceder a ella
+    if 'modo_asignacion_fuentes_radio' in st.session_state:
+        st.session_state.modo_asignacion_fuentes_radio = "Una fuente por cada corte" # Asumiendo este como default
     st.session_state.max_pattern_items_slider = 8
     st.session_state.largo_rollo_selector = 5.0 # Asumiendo este como default
     st.session_state.enable_source_calculation_toggle = True # Asumiendo este como default
 
     # Forzar una recarga completa de la aplicación para reflejar el estado inicial
-    st.experimental_rerun()
+    st.rerun() # CAMBIO: st.experimental_rerun() a st.rerun()
 
 
 def main():
@@ -360,15 +362,10 @@ def main():
                 st.button(" Eliminar", key=f"delete_cut_{largo}_{i}", on_click=delete_cut_callback, args=(largo,)) # Sin icono
         
         st.markdown("---") 
-        col_clear, col_reset = st.columns([0.5, 0.5])
-        with col_clear:
-            st.button(" Limpiar Todos los Cortes", key="clear_all_button", on_click=clear_all_cuts_callback) # Sin icono
-        with col_reset:
-            st.button("🔄 Reiniciar Todo", key="reset_all_button", on_click=reset_all_callback) # Nuevo botón de reinicio
+        st.button(" Limpiar Todos los Cortes", key="clear_all_button", on_click=clear_all_cuts_callback) # Sin icono
     else:
         st.info("Aún no has añadido ningún corte.")
-        # Mostrar el botón de reiniciar incluso si no hay cortes para permitir un reinicio completo
-        st.button("🔄 Reiniciar Todo", key="reset_all_button_empty", on_click=reset_all_callback)
+        # El botón de reiniciar se moverá al final de la aplicación
 
 
     # --- SLIDER PARA CONTROLAR EL LÍMITE DE PATRONES ---
@@ -536,9 +533,15 @@ def main():
         else:
             st.error(f"No se pudo encontrar una solución óptima para los cortes solicitados. Estado del optimizador: **{estado}**")
             st.markdown("Por favor, revisa tus entradas o la longitud del rollo seleccionado.")
+    
+    # --- BOTÓN DE REINICIAR TODO (MOVIDO AL FINAL) ---
+    st.markdown("---") # Separador visual
+    st.button("🔄 Reiniciar Todo", key="reset_all_button_final", on_click=reset_all_callback)
+
 
 if __name__ == "__main__":
     main()
+
 
 
 
