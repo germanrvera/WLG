@@ -110,7 +110,8 @@ def optimizar_fuentes_para_cortes_agrupados(solicitudes_cortes, watts_por_metro_
                 else:
                     detalles_fuentes_asignadas_list.append({
                         "Largo Corte (m)": largo_original,
-                        "Consumo Real (W)": f"{consumo_real_pieza:.2f}",
+                        "Cantidad de Cortes": cantidad_corte,
+                        "Consumo Total p/Corte (W)": f"{consumo_real_pieza:.2f}",
                         "Consumo Ajustado (W)": f"{consumo_pieza:.2f}",
                         "Fuente Asignada (W)": "N/A",
                         "Tipo Asignación": "No Asignada",
@@ -251,6 +252,31 @@ def calculate_sources_callback():
                 "detalles": detalles_agrupados_por_fuente
             }
 
+# --- NUEVA FUNCIÓN DE CALLBACK PARA REINICIAR TODO ---
+def reset_all_callback():
+    # Reiniciar todas las variables de session_state a sus valores iniciales
+    st.session_state.solicitudes_cortes_ingresadas = {}
+    st.session_state.current_largo_input_value = 0.1
+    st.session_state.current_cantidad_input_value = 1
+    
+    if 'cut_optimization_results' in st.session_state:
+        del st.session_state.cut_optimization_results
+    if 'source_calculation_results' in st.session_state:
+        del st.session_state.source_calculation_results
+    
+    # Reiniciar valores de inputs de fuentes a sus defaults
+    st.session_state.watts_per_meter_input = 10.0
+    st.session_state.available_sources_input = "30, 36, 40, 60, 100, 120, 150, 240, 320, 360"
+    st.session_state.safety_factor_slider = 20
+    st.session_state.modo_asignacion_fuentes_radio = "Una fuente por cada corte" # Asumiendo este como default
+    st.session_state.max_pattern_items_slider = 8
+    st.session_state.largo_rollo_selector = 5.0 # Asumiendo este como default
+    st.session_state.enable_source_calculation_toggle = True # Asumiendo este como default
+
+    # Forzar una recarga completa de la aplicación para reflejar el estado inicial
+    st.experimental_rerun()
+
+
 def main():
     st.set_page_config(layout="wide") 
     
@@ -334,9 +360,16 @@ def main():
                 st.button(" Eliminar", key=f"delete_cut_{largo}_{i}", on_click=delete_cut_callback, args=(largo,)) # Sin icono
         
         st.markdown("---") 
-        st.button(" Limpiar Todos los Cortes", key="clear_all_button", on_click=clear_all_cuts_callback) # Sin icono
+        col_clear, col_reset = st.columns([0.5, 0.5])
+        with col_clear:
+            st.button(" Limpiar Todos los Cortes", key="clear_all_button", on_click=clear_all_cuts_callback) # Sin icono
+        with col_reset:
+            st.button("🔄 Reiniciar Todo", key="reset_all_button", on_click=reset_all_callback) # Nuevo botón de reinicio
     else:
         st.info("Aún no has añadido ningún corte.")
+        # Mostrar el botón de reiniciar incluso si no hay cortes para permitir un reinicio completo
+        st.button("🔄 Reiniciar Todo", key="reset_all_button_empty", on_click=reset_all_callback)
+
 
     # --- SLIDER PARA CONTROLAR EL LÍMITE DE PATRONES ---
     st.header("4. Opciones Avanzadas de Optimización") 
@@ -441,7 +474,7 @@ def main():
                 st.markdown("Ingresa las potencias de las fuentes disponibles (en Watts), separadas por comas. Ej: `30, 36, 40, 60, 100, 120, 150, 240, 320, 360`")
                 fuentes_disponibles_str = st.text_input(
                     "Potencias de Fuentes de Poder Disponibles (Watts)", 
-                    value="30, 36, 40, 60, 100, 120, 150, 240, 320, 360", # <--- FUENTES RESTAURADAS AQUÍ
+                    value="30, 36, 40, 60, 100, 120, 150, 240, 320, 360", 
                     help="Las fuentes se eligen con un 20% de factor de seguridad por encima del consumo real."
                     ,key="available_sources_input" 
                 )
@@ -506,6 +539,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
 
 
