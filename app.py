@@ -264,9 +264,9 @@ def main():
 
     if st.session_state.reset_app_flag:
         # Limpiar todas las variables de session_state a sus valores iniciales
-        # No se borra 'logged_in' para permitir el reinicio de la sesión de email simple
+        # Asegurarse de no borrar 'logged_in' para permitir el reinicio de la sesión de email simple
         for key in list(st.session_state.keys()):
-            if key not in ['logged_in']: # Mantener el estado de login
+            if key != 'logged_in': # Mantener el estado de login
                 del st.session_state[key]
         
         # Reiniciar valores por defecto para los inputs de la aplicación
@@ -307,10 +307,33 @@ def main():
     st.title("Optimizador de cortes de tiras Jenny") 
     st.markdown("Esta herramienta te ayuda a calcular la forma más eficiente de cortar material lineal para minimizar desperdicios y la cantidad de rollos.")
 
-    # --- Lógica de Autenticación Simple por Email ---
+    # --- Inicialización de todas las variables de session_state al inicio ---
+    # Esto asegura que siempre estén definidas antes de que cualquier widget intente acceder a ellas
     if 'logged_in' not in st.session_state:
         st.session_state.logged_in = False
+    if 'solicitudes_cortes_ingresadas' not in st.session_state:
+        st.session_state.solicitudes_cortes_ingresadas = {}
+    if 'largo_input' not in st.session_state:
+        st.session_state.largo_input = 0.1
+    if 'cantidad_input' not in st.session_state:
+        st.session_state.cantidad_input = 1
+    if 'watts_per_meter_input' not in st.session_state:
+        st.session_state.watts_per_meter_input = 10.0
+    if 'available_sources_input' not in st.session_state:
+        st.session_state.available_sources_input = "30, 36, 40, 60, 100, 120, 150, 240, 320, 360"
+    if 'safety_factor_slider' not in st.session_state:
+        st.session_state.safety_factor_slider = 20
+    if 'modo_asignacion_fuentes_radio' not in st.session_state:
+        st.session_state.modo_asignacion_fuentes_radio = "Una fuente por cada corte"
+    if 'max_pattern_items_slider' not in st.session_state:
+        st.session_state.max_pattern_items_slider = 8
+    if 'largo_rollo_selector' not in st.session_state:
+        st.session_state.largo_rollo_selector = 5.0
+    if 'enable_source_calculation_toggle' not in st.session_state:
+        st.session_state.enable_source_calculation_toggle = True
 
+
+    # --- Lógica de Autenticación Simple por Email ---
     # Obtener la lista de emails permitidos de Streamlit Secrets
     try:
         # Los emails deben estar separados por coma en el secret
@@ -345,30 +368,6 @@ def main():
     if st.session_state.logged_in:
         st.sidebar.button("Cerrar Sesión", on_click=lambda: st.session_state.update(logged_in=False, reset_app_flag=True))
 
-
-        # --- Inicialización de session_state (resto de la aplicación) ---
-        # Estas inicializaciones se mantienen aunque el usuario se desloguee y vuelva a loguearse
-        # para que los datos no se pierdan a menos que se use el botón "Reiniciar todo".
-        if 'solicitudes_cortes_ingresadas' not in st.session_state:
-            st.session_state.solicitudes_cortes_ingresadas = {}
-        if 'largo_input' not in st.session_state:
-            st.session_state.largo_input = 0.1
-        if 'cantidad_input' not in st.session_state:
-            st.session_state.cantidad_input = 1
-        if 'watts_per_meter_input' not in st.session_state:
-            st.session_state.watts_per_meter_input = 10.0
-        if 'available_sources_input' not in st.session_state:
-            st.session_state.available_sources_input = "30, 36, 40, 60, 100, 120, 150, 240, 320, 360"
-        if 'safety_factor_slider' not in st.session_state:
-            st.session_state.safety_factor_slider = 20
-        if 'modo_asignacion_fuentes_radio' not in st.session_state:
-            st.session_state.modo_asignacion_fuentes_radio = "Una fuente por cada corte"
-        if 'max_pattern_items_slider' not in st.session_state:
-            st.session_state.max_pattern_items_slider = 8
-        if 'largo_rollo_selector' not in st.session_state:
-            st.session_state.largo_rollo_selector = 5.0
-        if 'enable_source_calculation_toggle' not in st.session_state:
-            st.session_state.enable_source_calculation_toggle = True
 
         # --- Sidebar para configuración global ---
         st.sidebar.header("Configuración Global")
@@ -593,4 +592,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    main()
+
 
