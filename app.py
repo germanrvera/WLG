@@ -314,16 +314,40 @@ def main():
     # Cargar credenciales desde st.secrets (para Streamlit Cloud)
     # Si estás ejecutando localmente y quieres usar config.yaml, puedes añadir un bloque try-except para cargar yaml
     # Sin embargo, para producción en Streamlit Cloud, st.secrets es el método preferido.
+    
+    # Nuevo bloque para cargar múltiples usuarios desde st.secrets
+    users_credentials = {}
+    
     try:
+        # Iterar sobre los secrets para encontrar todos los usuarios
+        for secret_key in st.secrets.keys():
+            if secret_key.startswith("AUTH_PASSWORD_") and secret_key.endswith("_HASH"):
+                username_part = secret_key.replace("AUTH_PASSWORD_", "").replace("_HASH", "").lower()
+                
+                # Construir las claves esperadas para este usuario
+                password_key = f"AUTH_PASSWORD_{username_part.upper()}_HASH"
+                email_key = f"AUTH_USER_EMAIL_{username_part.upper()}"
+                name_key = f"AUTH_USER_NAME_{username_part.upper()}"
+                
+                # Verificar que todas las claves necesarias para este usuario existan
+                if password_key in st.secrets and email_key in st.secrets and name_key in st.secrets:
+                    users_credentials[username_part] = {
+                        'email': st.secrets[email_key],
+                        'name': st.secrets[name_key],
+                        'password': st.secrets[password_key]
+                    }
+                else:
+                    st.warning(f"Advertencia: Credenciales incompletas para el usuario '{username_part}'. "
+                               "Asegúrate de que existan AUTH_PASSWORD_{USER}_HASH, AUTH_USER_EMAIL_{USER}, y AUTH_USER_NAME_{USER}.")
+        
+        if not users_credentials:
+            st.error("¡Error de configuración! No se encontraron credenciales de usuario válidas en Streamlit Secrets. "
+                     "Asegúrate de haber configurado al menos un usuario (ej. AUTH_PASSWORD_JENNY_HASH, etc.).")
+            st.stop()
+
         config = {
             'credentials': {
-                'usernames': {
-                    'jenny': {
-                        'email': st.secrets["AUTH_USER_EMAIL_JENNY"],
-                        'name': st.secrets["AUTH_USER_NAME_JENNY"],
-                        'password': st.secrets["AUTH_PASSWORD_JENNY_HASH"]
-                    }
-                }
+                'usernames': users_credentials
             },
             'cookie': {
                 'name': st.secrets["AUTH_COOKIE_NAME"],
@@ -332,9 +356,8 @@ def main():
             }
         }
     except KeyError as e:
-        st.error(f"¡Error de configuración! Falta la clave secreta: {e}. "
-                 "Si estás en Streamlit Cloud, asegúrate de haber configurado todos los Secrets. "
-                 "Si estás ejecutando localmente, crea un archivo .streamlit/secrets.toml o config.yaml.")
+        st.error(f"¡Error de configuración! Falta una clave secreta fundamental: {e}. "
+                 "Asegúrate de haber configurado todos los Secrets requeridos (ej. AUTH_COOKIE_NAME, AUTH_COOKIE_KEY, AUTH_COOKIE_EXPIRY_DAYS, y al menos un usuario).")
         st.stop() # Detener la ejecución si faltan secretos
     except Exception as e:
         st.error(f"Error inesperado al cargar la configuración de autenticación: {e}")
@@ -613,7 +636,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-if __name__ == "__main__":
-    main()
-
