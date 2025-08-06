@@ -371,7 +371,6 @@ def main():
 
         # --- Sidebar para configuración global ---
         st.sidebar.header("Configuración Global")
-        # Cambios aquí: Eliminamos la asignación directa y dejamos que el "key" maneje st.session_state
         st.sidebar.slider(
             "Factor de seguridad para fuentes (%)",
             min_value=0,
@@ -387,24 +386,24 @@ def main():
             value=st.session_state.watts_per_meter_input,
             step=0.1,
             format="%.1f",
-            key="watts_per_meter_input" # El valor se guarda automáticamente aquí
+            key="watts_per_meter_input"
         )
         st.sidebar.text_input(
             "Potencias de fuentes disponibles (Watts, separadas por coma)",
             value=st.session_state.available_sources_input,
-            key="available_sources_input", # El valor se guarda automáticamente aquí
+            key="available_sources_input",
             help="Ejemplo: 30, 60, 100, 150"
         )
         st.sidebar.radio(
             "Modo de asignación de fuentes",
             ("Una fuente por cada corte", "Optimizar fuentes para agrupar cortes"),
-            key="modo_asignacion_fuentes_radio", # El valor se guarda automáticamente aquí
+            key="modo_asignacion_fuentes_radio",
             help="Elige si cada corte necesita una fuente individual o si se pueden agrupar en fuentes más grandes."
         )
         st.sidebar.checkbox(
             "Habilitar cálculo de fuentes de poder",
             value=st.session_state.enable_source_calculation_toggle,
-            key="enable_source_calculation_toggle", # El valor se guarda automáticamente aquí
+            key="enable_source_calculation_toggle",
             help="Deshabilita esto si solo quieres optimizar los cortes de rollos."
         )
 
@@ -462,20 +461,22 @@ def main():
         st.header("2. Optimización de Cortes de Rollos")
         st.markdown("Esta sección calcula la forma más eficiente de cortar las tiras de rollos estándar para minimizar el desperdicio.")
 
-        st.session_state.largo_rollo_selector = st.selectbox(
+        # Eliminamos la asignación directa aquí
+        st.selectbox(
             "Largo del rollo estándar (metros)",
             options=[5.0, 10.0, 20.0, 25.0, 50.0, 100.0],
             index=0, # Valor por defecto 5.0m
-            key="largo_rollo_selector",
+            key="largo_rollo_selector", # El valor se guarda automáticamente en st.session_state.largo_rollo_selector
             help="Selecciona el largo del rollo de tira LED que utilizas."
         )
-        st.session_state.max_pattern_items_slider = st.slider(
+        # Eliminamos la asignación directa aquí
+        st.slider(
             "Número máximo de cortes diferentes por patrón",
             min_value=1,
             max_value=15,
             value=st.session_state.max_pattern_items_slider,
             step=1,
-            key="max_pattern_items_slider",
+            key="max_pattern_items_slider", # El valor se guarda automáticamente en st.session_state.max_pattern_items_slider
             help="Limita la complejidad de los patrones de corte. Un número menor puede ser más fácil de implementar."
         )
 
@@ -484,8 +485,8 @@ def main():
                 st.warning("Por favor, añade al menos un corte para optimizar los rollos.")
             else:
                 with st.spinner("Calculando patrones de corte óptimos..."):
-                    largo_rollo = st.session_state.largo_rollo_selector
-                    max_pattern_items = st.session_state.max_pattern_items_slider
+                    largo_rollo = st.session_state.largo_rollo_selector # Accedemos al valor a través de session_state
+                    max_pattern_items = st.session_state.max_pattern_items_slider # Accedemos al valor a través de session_state
                     
                     # Convertir el diccionario de solicitudes a una lista de (largo, cantidad)
                     items_a_cortar = []
@@ -593,5 +594,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
