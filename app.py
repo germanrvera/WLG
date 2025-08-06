@@ -4,8 +4,6 @@ import math
 import pandas as pd
 import collections
 from PIL import Image # Necesario para cargar la imagen
-# import yaml # Ya no es necesario importar yaml si solo usas st.secrets
-# from yaml.loader import SafeLoader # Ya no es necesario
 
 # --- FUNCIÓN PARA CALCULAR LA FUENTE MÁS ADECUADA (para modo individual) ---
 def obtener_fuente_adecuada_individual(consumo_requerido_watts, fuentes_disponibles_watts, factor_seguridad=1.2):
@@ -312,20 +310,20 @@ def main():
 
     # --- Configuración de Streamlit Authenticator ---
     # Cargar credenciales desde st.secrets (para Streamlit Cloud)
-    # Si estás ejecutando localmente y quieres usar config.yaml, puedes añadir un bloque try-except para cargar yaml
-    # Sin embargo, para producción en Streamlit Cloud, st.secrets es el método preferido.
+    # ¡ADVERTENCIA! Esta configuración usa contraseñas en texto plano.
+    # Esto NO es una práctica de seguridad recomendada para producción.
     
-    # Nuevo bloque para cargar múltiples usuarios desde st.secrets
     users_credentials = {}
     
     try:
         # Iterar sobre los secrets para encontrar todos los usuarios
+        # Ahora buscamos claves que terminen en "_PASSWORD_PLAIN"
         for secret_key in st.secrets.keys():
-            if secret_key.startswith("AUTH_PASSWORD_") and secret_key.endswith("_HASH"):
-                username_part = secret_key.replace("AUTH_PASSWORD_", "").replace("_HASH", "").lower()
+            if secret_key.startswith("AUTH_PASSWORD_") and secret_key.endswith("_PLAIN"):
+                username_part = secret_key.replace("AUTH_PASSWORD_", "").replace("_PLAIN", "").lower()
                 
                 # Construir las claves esperadas para este usuario
-                password_key = f"AUTH_PASSWORD_{username_part.upper()}_HASH"
+                password_key = f"AUTH_PASSWORD_{username_part.upper()}_PLAIN" # Clave para la contraseña plana
                 email_key = f"AUTH_USER_EMAIL_{username_part.upper()}"
                 name_key = f"AUTH_USER_NAME_{username_part.upper()}"
                 
@@ -334,15 +332,15 @@ def main():
                     users_credentials[username_part] = {
                         'email': st.secrets[email_key],
                         'name': st.secrets[name_key],
-                        'password': st.secrets[password_key]
+                        'password': st.secrets[password_key] # Usamos la contraseña plana directamente
                     }
                 else:
                     st.warning(f"Advertencia: Credenciales incompletas para el usuario '{username_part}'. "
-                               "Asegúrate de que existan AUTH_PASSWORD_{USER}_HASH, AUTH_USER_EMAIL_{USER}, y AUTH_USER_NAME_{USER}.")
+                               "Asegúrate de que existan AUTH_PASSWORD_{USER}_PLAIN, AUTH_USER_EMAIL_{USER}, y AUTH_USER_NAME_{USER}.")
         
         if not users_credentials:
             st.error("¡Error de configuración! No se encontraron credenciales de usuario válidas en Streamlit Secrets. "
-                     "Asegúrate de haber configurado al menos un usuario (ej. AUTH_PASSWORD_JENNY_HASH, etc.).")
+                     "Asegúrate de haber configurado al menos un usuario (ej. AUTH_PASSWORD_JENNY_PLAIN, etc.).")
             st.stop()
 
         config = {
@@ -367,7 +365,8 @@ def main():
         config['credentials'],
         config['cookie']['name'],
         config['cookie']['key'],
-        config['cookie']['expiry_days']
+        config['cookie']['expiry_days'],
+        auto_hash=False # ¡IMPORTANTE! Deshabilita el auto-hashing para usar contraseñas planas
     )
 
     # --- Lógica de Autenticación ---
@@ -628,11 +627,6 @@ def main():
                     st.write("Detalle de Fuentes Agrupadas:")
                     st.dataframe(pd.DataFrame(results["detalles"]), hide_index=True)
 
-# --- Para generar el hash de la contraseña (ejecutar una vez en un entorno Python) ---
-# import streamlit_authenticator as stauth
-# hashed_passwords = stauth.Hasher(['tu_contraseña_aqui']).generate()
-# print(hashed_passwords)
-# Copia el hash generado y pégalo en tu config.yaml
-
 if __name__ == "__main__":
     main()
+
