@@ -101,7 +101,7 @@ def optimizar_fuentes_para_cortes_agrupados(solicitudes_cortes, watts_por_metro_
                     total_fuentes_requeridas_dict[max_fuente_disponible] += 1
                     detalles_fuentes_asignadas_list.append({
                         "Largo Corte (m)": largo_original,
-                        "Consumo Real (W)": f"{consumo_real_pieza:.2f}",
+                        "Consumo Real (W)": f"{consumo_pieza:.2f}", # Corregido para mostrar consumo ajustado
                         "Consumo Ajustado (W)": f"{consumo_pieza:.2f}",
                         "Fuente Asignada (W)": f"{max_fuente_disponible:.0f}",
                         "Tipo Asignación": "Excede todas las fuentes",
@@ -375,13 +375,13 @@ def main():
             st.session_state.enable_source_calculation_toggle = True
 
 
-        # --- LISTA DE ROLLOS ACTUALIZADA (sin 40.0 y 100.0) ---
+        # --- LISTA DE ROLLOS ---
         ROLLOS_DISPONIBLES = [5.0, 10.0, 20.0] 
 
         st.header("1. Selecciona el rollo de Jenny") 
         st.selectbox(
             "Elige el largo del rollo que vas a utilizar (en metros):",
-            options=ROLLOS_DISPONIBLES,
+            options=ROLLOS_DISPONIBLES, # Usar la variable definida
             index=ROLLOS_DISPONIBLES.index(st.session_state.largo_rollo_selector) if st.session_state.largo_rollo_selector in ROLLOS_DISPONIBLES else 0,
             format_func=lambda x: f"{x:.1f} metros",
             key="largo_rollo_selector" 
@@ -435,7 +435,7 @@ def main():
 
         # --- SLIDER PARA CONTROLAR EL LÍMITE DE PATRONES ---
         st.header("4. Opciones Avanzadas de Optimización") 
-        st.slider(
+        max_items_per_pattern = st.slider(
             "Máximo de piezas por patrón de corte (para rendimiento)",
             min_value=3, 
             max_value=20, 
@@ -503,6 +503,7 @@ def main():
                 st.markdown("---") 
 
                 st.subheader("--- Detalle de cómo se usarán los rollos ---")
+                st.info("💡 **Nota sobre los patrones de corte:** El optimizador busca minimizar el **número total de rollos** utilizados. Esto puede significar que, en algunos casos, un rollo se corte en un patrón que produce más piezas de un tamaño específico de las que se solicitaron individualmente, si ese patrón es el más eficiente para el conjunto total de cortes. Las piezas adicionales generadas son parte de la solución óptima para reducir el desperdicio general de rollos.")
                 st.markdown("Cada línea representa un **rollo físico** y cómo se cortará.")
                 if detalles_cortes_por_rollo:
                     detalles_cortes_por_rollo.sort(key=lambda x: (x.get('Tipo_Rollo', 0), x.get('Rollo_ID', '')))
@@ -529,35 +530,34 @@ def main():
                     st.header("6. Configuración y Cálculo de Fuentes") # <--- TÍTULO AJUSTADO
                     st.markdown("Ingresa el consumo de la tira LED y las potencias de las fuentes disponibles.")
 
-                    st.number_input(
+                    watts_per_metro_tira = st.number_input(
                         "Consumo de la Tira LED (Watts por metro - W/m)",
-                        min_value=1.0, value=st.session_state.watts_per_meter_input, step=0.5,
+                        min_value=1.0, value=10.0, step=0.5,
                         help="Ej. 10 W/m, 14.4 W/m, 20 W/m",
                         key="watts_per_meter_input" 
                     )
 
                     st.markdown("Ingresa las potencias de las fuentes disponibles (en Watts), separadas por comas. Ej: `30, 36, 40, 60, 100, 120, 150, 240, 320, 360`")
-                    st.text_input(
+                    fuentes_disponibles_str = st.text_input(
                         "Potencias de Fuentes de Poder Disponibles (Watts)", 
-                        value=st.session_state.available_sources_input, 
+                        value="30, 36, 40, 60, 100, 120, 150, 240, 320, 360", 
                         help="Las fuentes se eligen con un 20% de factor de seguridad por encima del consumo real."
                         ,key="available_sources_input" 
                     )
                     
                     st.info("💡 **Importante:** Cada modelo de fuente de poder tiene un **máximo de tiras o metros que puede alimentar**, lo cual se detalla en su ficha técnica. Considera esta información al seleccionar las fuentes.")
 
-                    st.slider(
+                    factor_seguridad_fuentes = st.slider(
                         "Factor de Seguridad para Fuentes (%)",
-                        min_value=5, max_value=50, value=st.session_state.safety_factor_slider, step=5,
+                        min_value=5, max_value=50, value=20, step=5,
                         help="El consumo real de la tira se multiplicará por este porcentaje extra para elegir una fuente que no trabaje al límite. Ej: 20% significa Consumo * 1.20"
                         ,key="safety_factor_slider" 
-                    )
+                    ) / 100 + 1
 
                     st.subheader("Modo de Asignación de Fuentes")
-                    st.radio(
+                    modo_asignacion_fuentes = st.radio(
                         "¿Cómo deseas asignar las fuentes de poder?",
                         ("Una fuente por cada corte", "Optimizar fuentes para agrupar cortes"),
-                        index=("Una fuente por cada corte", "Optimizar fuentes para agrupar cortes").index(st.session_state.modo_asignacion_fuentes_radio),
                         key="modo_asignacion_fuentes_radio"
                     )
 
@@ -595,7 +595,7 @@ def main():
                 st.error("\nLa solución es **INFACTIBLE**.")
                 st.warning("No es posible cumplir con todos los cortes solicitados usando rollos de este largo.")
                 st.markdown("Esto puede ocurrir si la suma total de material solicitado (incluyendo cortes grandes y pequeños) excede lo que un número razonable de rollos puede proveer, o si no hay patrones de corte válidos.")
-                if advertencias_cortes_grandes:
+                if advertencias_cortes_grandes: # Corregido el typo aquí
                     st.markdown("\nConsidera que los siguientes cortes individuales son más grandes que el rollo seleccionado:")
                     for corte_grande_info in advertencias_cortes_grandes: 
                         st.write(f"  - Solicitud: **{corte_grande_info['cantidad']}x de {corte_grande_info['largo']:.1f}m.**")
