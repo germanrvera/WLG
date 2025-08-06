@@ -5,18 +5,20 @@ import math
 import pandas as pd
 import collections
 from PIL import Image # Necesario para cargar la imagen
-import json # Para parsear el secreto si es necesario
+import json # Para parsear el secreto
 
 # --- Inicializar Firebase Admin SDK ---
 # Asegúrate de que el contenido de tu archivo JSON de Firebase
 # esté guardado como un secreto en Streamlit Cloud con la clave 'firebase_credentials'.
 # Ejemplo en .streamlit/secrets.toml:
-# firebase_credentials = { ... tu JSON completo aquí ... }
+# firebase_credentials = """{ ... tu JSON completo aquí ... }"""
 if not firebase_admin._apps:
     try:
-        # st.secrets["firebase_credentials"] ya es un diccionario si lo pegaste como TOML
-        # Si lo pegaste como una cadena JSON, necesitarías json.loads(st.secrets["firebase_credentials"])
-        cred = credentials.Certificate(st.secrets["firebase_credentials"])
+        # Cargar las credenciales desde st.secrets
+        # Se asume que 'firebase_credentials' es una cadena JSON en st.secrets,
+        # por lo que se usa json.loads() para convertirla en un diccionario.
+        firebase_config = json.loads(st.secrets["firebase_credentials"])
+        cred = credentials.Certificate(firebase_config)
         firebase_admin.initialize_app(cred)
         st.success("Firebase inicializado correctamente.")
     except Exception as e:
@@ -119,7 +121,7 @@ def optimizar_fuentes_para_cortes_agrupados(solicitudes_cortes, watts_por_metro_
                     total_fuentes_requeridas_dict[max_fuente_disponible] += 1
                     detalles_fuentes_asignadas_list.append({
                         "Largo Corte (m)": largo_original,
-                        "Consumo Real (W)": f"{consumo_real_pieza:.2f}",
+                        "Consumo Real (W)": f"{consumo_pieza:.2f}", # Corregido para mostrar consumo ajustado
                         "Consumo Ajustado (W)": f"{consumo_pieza:.2f}",
                         "Fuente Asignada (W)": f"{max_fuente_disponible:.0f}",
                         "Tipo Asignación": "Excede todas las fuentes",
@@ -510,7 +512,7 @@ def main():
             else:
                 with st.spinner("Calculando la mejor optimización de cortes..."):
                     estado, num_rollos_totales, desperdicio_total, detalles_cortes_por_rollo, advertencias_cortes_grandes = \
-                        optimizar_cortes_para_un_largo_rollo(
+                        optimizador_cortes_para_un_largo_rollo(
                             largo_rollo_seleccionado, 
                             st.session_state.solicitudes_cortes_ingresadas, 
                             max_items_per_pattern=max_items_per_pattern 
@@ -663,6 +665,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 
 
 
