@@ -366,12 +366,13 @@ def main():
 
     # Si la autenticación es exitosa, el resto de la aplicación se muestra
     if st.session_state.logged_in:
-        st.sidebar.button("Cerrar Sesión", on_click=lambda: st.session_state.update(logged_in=False, reset_app_flag=True))
+        # El botón de cerrar sesión ahora está en el cuerpo principal
+        st.button("Cerrar Sesión", on_click=lambda: st.session_state.update(logged_in=False, reset_app_flag=True))
 
 
-        # --- Sidebar para configuración global ---
-        st.sidebar.header("Configuración Global")
-        st.sidebar.slider(
+        # --- Configuración Global ---
+        st.header("Configuración Global")
+        st.slider(
             "Factor de seguridad para fuentes (%)",
             min_value=0,
             max_value=100,
@@ -379,7 +380,7 @@ def main():
             key="safety_factor_slider",
             help="Porcentaje adicional de potencia para asegurar el funcionamiento óptimo de las fuentes. Ejemplo: 20% significa que una fuente de 100W solo se usará hasta 80W."
         )
-        st.sidebar.number_input(
+        st.number_input(
             "Consumo de la tira (Watts/metro)",
             min_value=0.1,
             max_value=100.0,
@@ -388,26 +389,26 @@ def main():
             format="%.1f",
             key="watts_per_meter_input"
         )
-        st.sidebar.text_input(
+        st.text_input(
             "Potencias de fuentes disponibles (Watts, separadas por coma)",
             value=st.session_state.available_sources_input,
             key="available_sources_input",
             help="Ejemplo: 30, 60, 100, 150"
         )
-        st.sidebar.radio(
+        st.radio(
             "Modo de asignación de fuentes",
             ("Una fuente por cada corte", "Optimizar fuentes para agrupar cortes"),
             key="modo_asignacion_fuentes_radio",
             help="Elige si cada corte necesita una fuente individual o si se pueden agrupar en fuentes más grandes."
         )
-        st.sidebar.checkbox(
+        st.checkbox(
             "Habilitar cálculo de fuentes de poder",
             value=st.session_state.enable_source_calculation_toggle,
             key="enable_source_calculation_toggle",
             help="Deshabilita esto si solo quieres optimizar los cortes de rollos."
         )
 
-        st.sidebar.button("Reiniciar todo", on_click=reset_all_callback, help="Borra todos los datos ingresados y la configuración.")
+        st.button("Reiniciar todo", on_click=reset_all_callback, help="Borra todos los datos ingresados y la configuración.")
 
         # --- Sección de entrada de cortes ---
         st.header("1. Ingresar Solicitudes de Cortes")
@@ -461,22 +462,20 @@ def main():
         st.header("2. Optimización de Cortes de Rollos")
         st.markdown("Esta sección calcula la forma más eficiente de cortar las tiras de rollos estándar para minimizar el desperdicio.")
 
-        # Eliminamos la asignación directa aquí
         st.selectbox(
             "Largo del rollo estándar (metros)",
             options=[5.0, 10.0, 20.0, 25.0, 50.0, 100.0],
             index=0, # Valor por defecto 5.0m
-            key="largo_rollo_selector", # El valor se guarda automáticamente en st.session_state.largo_rollo_selector
+            key="largo_rollo_selector",
             help="Selecciona el largo del rollo de tira LED que utilizas."
         )
-        # Eliminamos la asignación directa aquí
         st.slider(
             "Número máximo de cortes diferentes por patrón",
             min_value=1,
             max_value=15,
             value=st.session_state.max_pattern_items_slider,
             step=1,
-            key="max_pattern_items_slider", # El valor se guarda automáticamente en st.session_state.max_pattern_items_slider
+            key="max_pattern_items_slider",
             help="Limita la complejidad de los patrones de corte. Un número menor puede ser más fácil de implementar."
         )
 
@@ -485,8 +484,8 @@ def main():
                 st.warning("Por favor, añade al menos un corte para optimizar los rollos.")
             else:
                 with st.spinner("Calculando patrones de corte óptimos..."):
-                    largo_rollo = st.session_state.largo_rollo_selector # Accedemos al valor a través de session_state
-                    max_pattern_items = st.session_state.max_pattern_items_slider # Accedemos al valor a través de session_state
+                    largo_rollo = st.session_state.largo_rollo_selector
+                    max_pattern_items = st.session_state.max_pattern_items_slider
                     
                     # Convertir el diccionario de solicitudes a una lista de (largo, cantidad)
                     items_a_cortar = []
@@ -594,3 +593,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
