@@ -1,7 +1,8 @@
 streamlit
-streamlit-authenticator
+streamlit_authenticator==0.2.3
 pulp
 pandas # Streamlit usa pandas para st.dataframe, así que lo incluimos
 pillow
+
 
 
