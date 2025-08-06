@@ -371,6 +371,7 @@ def main():
 
         # --- Sidebar para configuración global ---
         st.sidebar.header("Configuración Global")
+        # Cambios aquí: Eliminamos la asignación directa y dejamos que el "key" maneje st.session_state
         st.sidebar.slider(
             "Factor de seguridad para fuentes (%)",
             min_value=0,
@@ -379,31 +380,31 @@ def main():
             key="safety_factor_slider",
             help="Porcentaje adicional de potencia para asegurar el funcionamiento óptimo de las fuentes. Ejemplo: 20% significa que una fuente de 100W solo se usará hasta 80W."
         )
-        st.session_state.watts_per_meter_input = st.sidebar.number_input(
+        st.sidebar.number_input(
             "Consumo de la tira (Watts/metro)",
             min_value=0.1,
             max_value=100.0,
             value=st.session_state.watts_per_meter_input,
             step=0.1,
             format="%.1f",
-            key="watts_per_meter_input"
+            key="watts_per_meter_input" # El valor se guarda automáticamente aquí
         )
-        st.session_state.available_sources_input = st.sidebar.text_input(
+        st.sidebar.text_input(
             "Potencias de fuentes disponibles (Watts, separadas por coma)",
             value=st.session_state.available_sources_input,
-            key="available_sources_input",
+            key="available_sources_input", # El valor se guarda automáticamente aquí
             help="Ejemplo: 30, 60, 100, 150"
         )
-        st.session_state.modo_asignacion_fuentes_radio = st.sidebar.radio(
+        st.sidebar.radio(
             "Modo de asignación de fuentes",
             ("Una fuente por cada corte", "Optimizar fuentes para agrupar cortes"),
-            key="modo_asignacion_fuentes_radio",
+            key="modo_asignacion_fuentes_radio", # El valor se guarda automáticamente aquí
             help="Elige si cada corte necesita una fuente individual o si se pueden agrupar en fuentes más grandes."
         )
-        st.session_state.enable_source_calculation_toggle = st.sidebar.checkbox(
+        st.sidebar.checkbox(
             "Habilitar cálculo de fuentes de poder",
             value=st.session_state.enable_source_calculation_toggle,
-            key="enable_source_calculation_toggle",
+            key="enable_source_calculation_toggle", # El valor se guarda automáticamente aquí
             help="Deshabilita esto si solo quieres optimizar los cortes de rollos."
         )
 
@@ -591,8 +592,6 @@ def main():
                     st.dataframe(pd.DataFrame(results["detalles"]), hide_index=True)
 
 if __name__ == "__main__":
-    main()
-
     main()
 
 
