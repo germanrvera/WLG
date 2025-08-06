@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit_authenticator as stauth # Importar la librería para autenticación
 import math
 import pandas as pd
 import collections
@@ -265,9 +264,9 @@ def main():
 
     if st.session_state.reset_app_flag:
         # Limpiar todas las variables de session_state a sus valores iniciales
-        # No se borra 'authentication_status' ni 'name' de stauth para permitir el reinicio de la sesión
+        # No se borra 'logged_in' para permitir el reinicio de la sesión de email simple
         for key in list(st.session_state.keys()):
-            if key not in ['authentication_status', 'name']: # Mantener las claves de autenticación
+            if key not in ['logged_in']: # Mantener el estado de login
                 del st.session_state[key]
         
         # Reiniciar valores por defecto para los inputs de la aplicación
@@ -308,83 +307,48 @@ def main():
     st.title("Optimizador de cortes de tiras Jenny") 
     st.markdown("Esta herramienta te ayuda a calcular la forma más eficiente de cortar material lineal para minimizar desperdicios y la cantidad de rollos.")
 
-    # --- Configuración de Streamlit Authenticator ---
-    # Cargar credenciales desde st.secrets (para Streamlit Cloud)
-    # ¡ADVERTENCIA! Esta configuración usa contraseñas en texto plano.
-    # Esto NO es una práctica de seguridad recomendada para producción.
-    
-    users_credentials = {}
-    
-    try:
-        # Iterar sobre los secrets para encontrar todos los usuarios
-        # Ahora buscamos claves que terminen en "_PASSWORD_PLAIN"
-        for secret_key in st.secrets.keys():
-            if secret_key.startswith("AUTH_PASSWORD_") and secret_key.endswith("_PLAIN"):
-                username_part = secret_key.replace("AUTH_PASSWORD_", "").replace("_PLAIN", "").lower()
-                
-                # Construir las claves esperadas para este usuario
-                password_key = f"AUTH_PASSWORD_{username_part.upper()}_PLAIN" # Clave para la contraseña plana
-                email_key = f"AUTH_USER_EMAIL_{username_part.upper()}"
-                name_key = f"AUTH_USER_NAME_{username_part.upper()}"
-                
-                # Verificar que todas las claves necesarias para este usuario existan
-                if password_key in st.secrets and email_key in st.secrets and name_key in st.secrets:
-                    users_credentials[username_part] = {
-                        'email': st.secrets[email_key],
-                        'name': st.secrets[name_key],
-                        'password': st.secrets[password_key] # Usamos la contraseña plana directamente
-                    }
-                else:
-                    st.warning(f"Advertencia: Credenciales incompletas para el usuario '{username_part}'. "
-                               "Asegúrate de que existan AUTH_PASSWORD_{USER}_PLAIN, AUTH_USER_EMAIL_{USER}, y AUTH_USER_NAME_{USER}.")
-        
-        if not users_credentials:
-            st.error("¡Error de configuración! No se encontraron credenciales de usuario válidas en Streamlit Secrets. "
-                     "Asegúrate de haber configurado al menos un usuario (ej. AUTH_PASSWORD_JENNY_PLAIN, etc.).")
-            st.stop()
+    # --- Lógica de Autenticación Simple por Email ---
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
 
-        config = {
-            'credentials': {
-                'usernames': users_credentials
-            },
-            'cookie': {
-                'name': st.secrets["AUTH_COOKIE_NAME"],
-                'key': st.secrets["AUTH_COOKIE_KEY"],
-                'expiry_days': st.secrets["AUTH_COOKIE_EXPIRY_DAYS"]
-            }
-        }
-    except KeyError as e:
-        st.error(f"¡Error de configuración! Falta una clave secreta fundamental: {e}. "
-                 "Asegúrate de haber configurado todos los Secrets requeridos (ej. AUTH_COOKIE_NAME, AUTH_COOKIE_KEY, AUTH_COOKIE_EXPIRY_DAYS, y al menos un usuario).")
-        st.stop() # Detener la ejecución si faltan secretos
+    # Obtener la lista de emails permitidos de Streamlit Secrets
+    try:
+        # Los emails deben estar separados por coma en el secret
+        allowed_emails_str = st.secrets["ALLOWED_EMAILS"]
+        ALLOWED_EMAILS = [email.strip().lower() for email in allowed_emails_str.split(',') if email.strip()]
+        if not ALLOWED_EMAILS:
+            st.error("¡Error de configuración! La lista de emails permitidos está vacía en Streamlit Secrets. "
+                     "Por favor, configura la clave 'ALLOWED_EMAILS' con al menos una dirección de correo.")
+            st.stop()
+    except KeyError:
+        st.error("¡Error de configuración! No se encontró la clave 'ALLOWED_EMAILS' en Streamlit Secrets. "
+                 "Por favor, configura esta clave con las direcciones de correo permitidas (separadas por coma).")
+        st.stop()
     except Exception as e:
-        st.error(f"Error inesperado al cargar la configuración de autenticación: {e}")
+        st.error(f"Error inesperado al cargar la lista de emails permitidos: {e}")
         st.stop()
 
-    authenticator = stauth.Authenticate(
-        config['credentials'],
-        config['cookie']['name'],
-        config['cookie']['key'],
-        config['cookie']['expiry_days'],
-        auto_hash=False # ¡IMPORTANTE! Deshabilita el auto-hashing para usar contraseñas planas
-    )
-
-    # --- Lógica de Autenticación ---
-    name, authentication_status, username = authenticator.login('Login', 'main')
-
-    if authentication_status == False:
-        st.error('Usuario/Contraseña incorrecta')
-        st.stop() # Detener la ejecución si la autenticación falla
-    elif authentication_status == None:
-        st.warning('Por favor, ingresa tu usuario y contraseña')
-        st.stop() # Detener la ejecución si no se ha intentado autenticar
+    if not st.session_state.logged_in:
+        st.subheader("Acceso a la Aplicación")
+        email_input = st.text_input("Ingresa tu dirección de correo electrónico para acceder:", key="email_access_input").strip().lower()
+        
+        if st.button("Acceder"):
+            if email_input in ALLOWED_EMAILS:
+                st.session_state.logged_in = True
+                st.success(f"¡Acceso concedido para {email_input}!")
+                st.rerun() # Recargar la app para mostrar el contenido principal
+            else:
+                st.error("Dirección de correo no autorizada. Por favor, contacta al administrador.")
+        st.stop() # Detener la ejecución si no está logueado
 
     # Si la autenticación es exitosa, el resto de la aplicación se muestra
-    if authentication_status:
-        st.sidebar.write(f'Bienvenido, *{name}*')
-        authenticator.logout('Logout', 'sidebar')
+    if st.session_state.logged_in:
+        st.sidebar.button("Cerrar Sesión", on_click=lambda: st.session_state.update(logged_in=False, reset_app_flag=True))
 
-        # --- Inicialización de session_state ---
+
+        # --- Inicialización de session_state (resto de la aplicación) ---
+        # Estas inicializaciones se mantienen aunque el usuario se desloguee y vuelva a loguearse
+        # para que los datos no se pierdan a menos que se use el botón "Reiniciar todo".
         if 'solicitudes_cortes_ingresadas' not in st.session_state:
             st.session_state.solicitudes_cortes_ingresadas = {}
         if 'largo_input' not in st.session_state:
