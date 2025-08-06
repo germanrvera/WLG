@@ -1,6 +1,7 @@
 streamlit
-firebase-admin
+streamlit-authenticator
 pulp
 pandas # Streamlit usa pandas para st.dataframe, así que lo incluimos
 pillow
+
 
