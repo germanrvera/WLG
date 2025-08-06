@@ -368,48 +368,46 @@ def main():
     if st.session_state.logged_in:
         st.button("Cerrar Sesión", on_click=lambda: st.session_state.update(logged_in=False, reset_app_flag=True))
 
-        # Checkbox para habilitar/deshabilitar el cálculo de fuentes
+        # --- Sección de Configuración Global (Siempre visible después del login) ---
+        st.header("Configuración Global")
+        st.slider(
+            "Factor de seguridad para fuentes (%)",
+            min_value=0,
+            max_value=100,
+            value=st.session_state.safety_factor_slider,
+            key="safety_factor_slider",
+            help="Porcentaje adicional de potencia para asegurar el funcionamiento óptimo de las fuentes. Ejemplo: 20% significa que una fuente de 100W solo se usará hasta 80W."
+        )
+        st.number_input(
+            "Consumo de la tira (Watts/metro)",
+            min_value=0.1,
+            max_value=100.0,
+            value=st.session_state.watts_per_meter_input,
+            step=0.1,
+            format="%.1f",
+            key="watts_per_meter_input"
+        )
+        st.text_input(
+            "Potencias de fuentes disponibles (Watts, separadas por coma)",
+            value=st.session_state.available_sources_input,
+            key="available_sources_input",
+            help="Ejemplo: 30, 60, 100, 150"
+        )
+        st.radio(
+            "Modo de asignación de fuentes",
+            ("Una fuente por cada corte", "Optimizar fuentes para agrupar cortes"),
+            key="modo_asignacion_fuentes_radio",
+            help="Elige si cada corte necesita una fuente individual o si se pueden agrupar en fuentes más grandes."
+        )
+        st.button("Reiniciar todo", on_click=reset_all_callback, help="Borra todos los datos ingresados y la configuración.")
+
+        # Checkbox para habilitar/deshabilitar el cálculo de fuentes (controla la visibilidad de la sección 3)
         st.checkbox(
             "Habilitar cálculo de fuentes de poder",
             value=st.session_state.enable_source_calculation_toggle,
             key="enable_source_calculation_toggle",
             help="Marca esta casilla si deseas incluir el cálculo de fuentes de poder. Desmárcala si solo quieres optimizar los cortes de rollos."
         )
-
-        # --- Sección de Configuración Global (Opcional) ---
-        if st.session_state.enable_source_calculation_toggle:
-            st.header("Configuración Global")
-            st.slider(
-                "Factor de seguridad para fuentes (%)",
-                min_value=0,
-                max_value=100,
-                value=st.session_state.safety_factor_slider,
-                key="safety_factor_slider",
-                help="Porcentaje adicional de potencia para asegurar el funcionamiento óptimo de las fuentes. Ejemplo: 20% significa que una fuente de 100W solo se usará hasta 80W."
-            )
-            st.number_input(
-                "Consumo de la tira (Watts/metro)",
-                min_value=0.1,
-                max_value=100.0,
-                value=st.session_state.watts_per_meter_input,
-                step=0.1,
-                format="%.1f",
-                key="watts_per_meter_input"
-            )
-            st.text_input(
-                "Potencias de fuentes disponibles (Watts, separadas por coma)",
-                value=st.session_state.available_sources_input,
-                key="available_sources_input",
-                help="Ejemplo: 30, 60, 100, 150"
-            )
-            st.radio(
-                "Modo de asignación de fuentes",
-                ("Una fuente por cada corte", "Optimizar fuentes para agrupar cortes"),
-                key="modo_asignacion_fuentes_radio",
-                help="Elige si cada corte necesita una fuente individual o si se pueden agrupar en fuentes más grandes."
-            )
-            st.button("Reiniciar todo", on_click=reset_all_callback, help="Borra todos los datos ingresados y la configuración.")
-
 
         # --- Sección de entrada de cortes ---
         st.header("1. Ingresar Solicitudes de Cortes")
@@ -564,7 +562,7 @@ def main():
             st.dataframe(pd.DataFrame(results["detalles_patrones"]), hide_index=True)
 
 
-        # --- Sección de Cálculo de Fuentes de Poder (Opcional) ---
+        # --- Sección de Cálculo de Fuentes de Poder (Opcional, controlada por el checkbox) ---
         if st.session_state.enable_source_calculation_toggle:
             st.header("3. Cálculo de Fuentes de Poder")
             st.markdown("Esta sección te ayuda a determinar las fuentes de poder necesarias para tus cortes, considerando un factor de seguridad.")
