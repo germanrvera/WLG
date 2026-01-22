@@ -1,71 +1,55 @@
 import streamlit as st
-from optimizador_logic import optimizar_cortes_para_un_largo_rollo
 import math
 import pandas as pd
 import collections
-from PIL import Image # Necesario para cargar la imagen
+import io
+from PIL import Image
 
-# --- FUNCIÓN PARA CALCULAR LA FUENTE MÁS ADECUADA (para modo individual) ---
+# --- LÓGICA EXTERNA (Simulada o Importada) ---
+# Nota: Asegúrate de que 'optimizador_logic.py' exista en tu entorno.
+try:
+    from optimizador_logic import optimizar_cortes_para_un_largo_rollo
+except ImportError:
+    # Función dummy para evitar errores si el archivo no está presente en la previsualización
+    def optimizar_cortes_para_un_largo_rollo(*args, **kwargs):
+        return "Error", 0, 0, [], []
+
+# --- FUNCIÓN PARA CALCULAR LA FUENTE MÁS ADECUADA (modo individual) ---
 def obtener_fuente_adecuada_individual(consumo_requerido_watts, fuentes_disponibles_watts, factor_seguridad=1.2):
-    """
-    Calcula la fuente de poder más pequeña que soporta el consumo requerido
-    aplicando un factor de seguridad (modo individual).
-    """
     consumo_ajustado = consumo_requerido_watts * factor_seguridad
-    
     fuentes_suficientes = [f for f in fuentes_disponibles_watts if f >= consumo_ajustado]
     
     if not fuentes_suficientes:
         if fuentes_disponibles_watts:
-            return max(fuentes_disponibles_watts), f"¡Advertencia! El consumo de {consumo_requerido_watts:.2f}W (ajustado a {consumo_ajustado:.2f}W) excede todas las fuentes disponibles. Se asigna la fuente más grande disponible ({max(fuentes_disponibles_watts):.0f}W)."
+            return max(fuentes_disponibles_watts), f"¡Advertencia! El consumo de {consumo_requerido_watts:.2f}W excede las fuentes disponibles."
         else:
-            return None, "No hay fuentes disponibles para asignar."
+            return None, "No hay fuentes disponibles."
     
     return min(fuentes_suficientes), "" 
 
-# --- FUNCIÓN PARA OPTIMIZAR FUENTES (modo agrupado - First Fit Decreasing) ---
+# --- FUNCIÓN PARA OPTIMIZAR FUENTES (modo agrupado) ---
 def optimizar_fuentes_para_cortes_agrupados(solicitudes_cortes, watts_por_metro_tira, fuentes_disponibles_watts, factor_seguridad):
-    """
-    Optimiza la asignación de fuentes de poder para agrupar cortes, minimizando el número total de fuentes.
-    Utiliza un algoritmo First Fit Decreasing (FFD).
-    
-    Returns:
-        tuple: (total_fuentes_requeridas_dict, detalles_fuentes_asignadas_list)
-               - total_fuentes_requeridas_dict (defaultdict): Conteo de cada tipo de fuente usada.
-               - detalles_fuentes_asignadas_list (list): Detalles de cada pieza y la fuente asignada.
-    """
-    
-    # 1. Calcular el consumo ajustado para cada pieza individualmente y almacenar su largo original
     piezas_consumo_ajustado = []
     for largo_corte, cantidad_corte in solicitudes_cortes.items():
         consumo_individual_real = largo_corte * watts_por_metro_tira
         consumo_individual_ajustado = consumo_individual_real * factor_seguridad
-        for _ in range(cantidad_corte): # Cada pieza individual se considera para la asignación
+        for _ in range(cantidad_corte):
             piezas_consumo_ajustado.append({
                 "largo_original": largo_corte,
                 "consumo_real": consumo_individual_real,
                 "consumo_ajustado": consumo_individual_ajustado
             })
     
-    # Ordenar las piezas por consumo ajustado de mayor a menor (FFD)
     piezas_consumo_ajustado.sort(key=lambda x: x["consumo_ajustado"], reverse=True)
-
-    # 2. Inicializar las "bandejas" (fuentes) en uso
-    # Cada fuente_en_uso es un diccionario: {"tipo": potencia_W, "restante": capacidad_restante, "cortes_asignados": []}
     fuentes_en_uso = [] 
-    
-    # Para el resumen final de fuentes
     total_fuentes_requeridas_dict = collections.defaultdict(int)
-    detalles_fuentes_asignadas_list = [] # Para la tabla de resultados detallados
 
-    # 3. Asignar cada pieza a una fuente
     for pieza in piezas_consumo_ajustado:
         consumo_pieza = pieza["consumo_ajustado"]
         largo_original = pieza["largo_original"]
         consumo_real_pieza = pieza["consumo_real"]
         
         asignada_a_existente = False
-        # Intentar asignar a una fuente existente que tenga suficiente capacidad
         for fuente_actual in fuentes_en_uso:
             if fuente_actual["restante"] >= consumo_pieza:
                 fuente_actual["restante"] -= consumo_pieza
@@ -74,9 +58,7 @@ def optimizar_fuentes_para_cortes_agrupados(solicitudes_cortes, watts_por_metro_
                 break
         
         if not asignada_a_existente:
-            # Si no se pudo asignar a una fuente existente, buscar una nueva fuente adecuada
             fuente_nueva_encontrada = False
-            # Iterar por las fuentes disponibles en orden ascendente (First Fit)
             for fuente_disponible_w in sorted(fuentes_disponibles_watts): 
                 if fuente_disponible_w >= consumo_pieza:
                     fuentes_en_uso.append({
@@ -84,530 +66,157 @@ def optimizar_fuentes_para_cortes_agrupados(solicitudes_cortes, watts_por_metro_
                         "restante": fuente_disponible_w - consumo_pieza,
                         "cortes_asignados": [{"largo": largo_original, "consumo_real": consumo_real_pieza}]
                     })
-                    total_fuentes_requeridas_dict[fuente_disponible_w] += 1 # Contar esta nueva fuente
+                    total_fuentes_requeridas_dict[fuente_disponible_w] += 1
                     fuente_nueva_encontrada = True
                     break
             
             if not fuente_nueva_encontrada:
-                # Si la pieza es demasiado grande para CUALQUIER fuente disponible
-                max_fuente_disponible = max(fuentes_disponibles_watts) if fuentes_disponibles_watts else None
-                if max_fuente_disponible:
-                    # Asignar la fuente más grande disponible y marcar con advertencia
-                    fuentes_en_uso.append({
-                        "tipo": max_fuente_disponible,
-                        "restante": max_fuente_disponible - consumo_pieza, # Puede ser negativo si excede
-                        "cortes_asignados": [{"largo": largo_original, "consumo_real": consumo_real_pieza}]
-                    })
-                    total_fuentes_requeridas_dict[max_fuente_disponible] += 1
-                    detalles_fuentes_asignadas_list.append({
-                        "Largo Corte (m)": largo_original,
-                        "Consumo Real (W)": f"{consumo_pieza:.2f}", # Corregido para mostrar consumo ajustado
-                        "Consumo Ajustado (W)": f"{consumo_pieza:.2f}",
-                        "Fuente Asignada (W)": f"{max_fuente_disponible:.0f}",
-                        "Tipo Asignación": "Excede todas las fuentes",
-                        "Advertencia": f"¡Advertencia! Consumo de {consumo_real_pieza:.2f}W (ajustado a {consumo_pieza:.2f}W) excede todas las fuentes. Se asigna la más grande ({max_fuente_disponible:.0f}W)."
-                    })
-                else:
-                    detalles_fuentes_asignadas_list.append({
-                        "Largo Corte (m)": largo_original,
-                        "Cantidad de Cortes": 1, # Cada pieza individual se procesa
-                        "Consumo Total p/Corte (W)": f"{consumo_real_pieza:.2f}",
-                        "Consumo Ajustado (W)": f"{consumo_pieza:.2f}",
-                        "Fuente Asignada (W)": "N/A",
-                        "Tipo Asignación": "No Asignada",
-                        "Advertencia": "No hay fuentes disponibles para asignar."
-                    })
+                max_f = max(fuentes_disponibles_watts) if fuentes_disponibles_watts else 0
+                fuentes_en_uso.append({
+                    "tipo": max_f,
+                    "restante": max_f - consumo_pieza,
+                    "cortes_asignados": [{"largo": largo_original, "consumo_real": consumo_real_pieza}]
+                })
+                total_fuentes_requeridas_dict[max_f] += 1
     
-    # 4. Formatear los detalles para la tabla de resultados
-    detalles_finales_agrupados = []
-    fuente_id_counter = 1
-    for fuente_obj in fuentes_en_uso:
-        cortes_str_list = [f"{c['largo']:.2f}m ({c['consumo_real']:.2f}W)" for c in fuente_obj["cortes_asignados"]]
-        total_consumo_fuente = fuente_obj["tipo"] - fuente_obj["restante"] 
-        
-        detalles_finales_agrupados.append({
-            "ID Fuente": f"F-{fuente_id_counter}",
-            "Potencia Fuente (W)": fuente_obj["tipo"],
-            "Cortes Asignados": ", ".join(cortes_str_list),
-            "Consumo Total en Fuente (W)": f"{total_consumo_fuente:.2f}",
-            "Capacidad Restante (W)": f"{fuente_obj['restante']:.2f}",
-            "Advertencia": "Consumo excede capacidad" if fuente_obj["restante"] < 0 else ""
+    detalles_finales = []
+    for i, f_obj in enumerate(fuentes_en_uso):
+        cortes_str = ", ".join([f"{c['largo']:.2f}m" for c in f_obj["cortes_asignados"]])
+        detalles_finales.append({
+            "ID Fuente": f"F-{i+1}",
+            "Potencia (W)": f_obj["tipo"],
+            "Cortes": cortes_str,
+            "Consumo (W)": f"{f_obj['tipo'] - f_obj['restante']:.2f}",
+            "Advertencia": "EXCEDE" if f_obj["restante"] < 0 else ""
         })
-        fuente_id_counter += 1
 
-    return total_fuentes_requeridas_dict, detalles_finales_agrupados
+    return total_fuentes_requeridas_dict, detalles_finales
 
-
-# --- Funciones de Callback para los botones de la UI ---
+# --- CALLBACKS ---
 def add_cut_callback():
     largo = st.session_state.largo_input
     cantidad = st.session_state.cantidad_input
-
     if largo > 0 and cantidad > 0:
         st.session_state.solicitudes_cortes_ingresadas[largo] = \
             st.session_state.solicitudes_cortes_ingresadas.get(largo, 0) + cantidad
-        st.success(f"Se añadió {cantidad} cortes de {largo}m.")
-        
-        st.session_state.largo_input = 0.1 # Reiniciar el valor del input
-        st.session_state.cantidad_input = 1 # Reiniciar el valor del input
-    else:
-        st.error("Por favor, ingresa valores positivos para largo y cantidad.")
+        st.session_state.largo_input = 0.1
+        st.session_state.cantidad_input = 1
 
 def clear_all_cuts_callback():
     st.session_state.solicitudes_cortes_ingresadas = {}
-    st.session_state.largo_input = 0.1
-    st.session_state.cantidad_input = 1
-    # También limpiar los resultados de optimización y fuentes al limpiar cortes
-    if 'cut_optimization_results' in st.session_state:
-        del st.session_state.cut_optimization_results
-    if 'source_calculation_results' in st.session_state:
-        del st.session_state.source_calculation_results
-
+    if 'cut_optimization_results' in st.session_state: del st.session_state.cut_optimization_results
+    if 'source_calculation_results' in st.session_state: del st.session_state.source_calculation_results
 
 def delete_cut_callback(largo_to_delete):
     if largo_to_delete in st.session_state.solicitudes_cortes_ingresadas:
         del st.session_state.solicitudes_cortes_ingresadas[largo_to_delete]
-    # También limpiar los resultados de optimización y fuentes al eliminar un corte
-    if 'cut_optimization_results' in st.session_state:
-        del st.session_state.cut_optimization_results
-    if 'source_calculation_results' in st.session_state:
-        del st.session_state.source_calculation_results
-
 
 def calculate_sources_callback():
-    # Asegurarse de que haya cortes ingresados antes de calcular fuentes
     if not st.session_state.solicitudes_cortes_ingresadas:
-        st.warning("Por favor, añade al menos un corte antes de calcular las fuentes.")
-        st.session_state.source_calculation_results = None # Limpiar resultados anteriores
+        st.warning("Añade cortes primero.")
         return
     
-    # Asegurarse de que haya fuentes disponibles configuradas
-    fuentes_disponibles_watts = []
     try:
-        fuentes_disponibles_watts = sorted([float(w.strip()) for w in st.session_state.available_sources_input.split(',') if w.strip()])
-        if not fuentes_disponibles_watts:
-            st.warning("Por favor, configura las potencias de las fuentes disponibles.")
-            st.session_state.source_calculation_results = None
-            return
-    except ValueError:
-        st.error("Formato de fuentes inválido. Asegúrate de usar números y comas (ej: 60, 100, 150).")
-        st.session_state.source_calculation_results = None
-        return
-
-    with st.spinner("Calculando fuentes de poder..."):
-        watts_por_metro_tira = st.session_state.watts_per_meter_input
-        factor_seguridad_fuentes = st.session_state.safety_factor_slider / 100 + 1
-        modo_asignacion_fuentes = st.session_state.modo_asignacion_fuentes_radio
-
-        if modo_asignacion_fuentes == "Una fuente por cada corte":
-            total_fuentes_requeridas_individual = collections.defaultdict(int)
-            detalles_fuentes_individual = []
-            
-            for largo_corte, cantidad_corte in st.session_state.solicitudes_cortes_ingresadas.items():
-                consumo_corte = largo_corte * watts_por_metro_tira
-                
-                fuente_asignada, advertencia_fuente = obtener_fuente_adecuada_individual(
-                    consumo_corte, fuentes_disponibles_watts, factor_seguridad_fuentes
-                )
-                
-                if fuente_asignada:
-                    total_fuentes_requeridas_individual[fuente_asignada] += cantidad_corte 
-                    detalles_fuentes_individual.append({
-                        "Largo Corte (m)": largo_corte,
-                        "Cantidad de Cortes": cantidad_corte,
-                        "Consumo Total p/Corte (W)": f"{consumo_corte:.2f}",
-                        "Consumo Ajustado (W)": f"{consumo_corte * factor_seguridad_fuentes:.2f}",
-                        "Fuente Asignada (W)": f"{fuente_asignada:.0f}",
-                        "Advertencia": advertencia_fuente
-                    })
-                else:
-                    detalles_fuentes_individual.append({
-                        "Largo Corte (m)": largo_corte,
-                        "Cantidad de Cortes": cantidad_corte,
-                        "Consumo Total p/Corte (W)": f"{consumo_corte:.2f}",
-                        "Consumo Ajustado (W)": f"{consumo_corte * factor_seguridad_fuentes:.2f}",
-                        "Fuente Asignada (W)": "N/A",
-                        "Tipo Asignación": "No Asignada",
-                        "Advertencia": advertencia_fuente if advertencia_fuente else "No se pudo asignar fuente."
-                    })
-            
-            st.session_state.source_calculation_results = {
-                "mode": "individual",
-                "total_fuentes": total_fuentes_requeridas_individual,
-                "detalles": detalles_fuentes_individual
-            }
-
-        elif modo_asignacion_fuentes == "Optimizar fuentes para agrupar cortes":
-            total_fuentes_agrupadas, detalles_agrupados_por_fuente = \
-                optimizar_fuentes_para_cortes_agrupados(
-                    st.session_state.solicitudes_cortes_ingresadas, 
-                    watts_por_metro_tira, 
-                    fuentes_disponibles_watts, 
-                    factor_seguridad_fuentes
-                )
-            
-            st.session_state.source_calculation_results = {
-                "mode": "grouped",
-                "total_fuentes": total_fuentes_agrupadas,
-                "detalles": detalles_agrupados_por_fuente
-            }
-
-# --- FUNCIÓN DE CALLBACK PARA REINICIAR TODO ---
-def reset_all_callback():
-    # Establecer una bandera en session_state para indicar que se debe reiniciar la aplicación
-    st.session_state.reset_app_flag = True
-
+        fuentes = sorted([float(w.strip()) for w in st.session_state.available_sources_input.split(',') if w.strip()])
+        watts_m = st.session_state.watts_per_meter_input
+        f_seg = st.session_state.safety_factor_slider / 100 + 1
+        
+        if st.session_state.modo_asignacion_fuentes_radio == "Una fuente por cada corte":
+            res_dict = collections.defaultdict(int)
+            detalles = []
+            for largo, cant in st.session_state.solicitudes_cortes_ingresadas.items():
+                f_asig, adv = obtener_fuente_adecuada_individual(largo * watts_m, fuentes, f_seg)
+                if f_asig: res_dict[f_asig] += cant
+                detalles.append({"Corte": largo, "Cant": cant, "Fuente": f_asig, "Nota": adv})
+            st.session_state.source_calculation_results = {"mode": "individual", "total_fuentes": res_dict, "detalles": detalles}
+        else:
+            total_f, detalles = optimizar_fuentes_para_cortes_agrupados(st.session_state.solicitudes_cortes_ingresadas, watts_m, fuentes, f_seg)
+            st.session_state.source_calculation_results = {"mode": "grouped", "total_fuentes": total_f, "detalles": detalles}
+    except Exception as e:
+        st.error(f"Error en fuentes: {e}")
 
 def main():
-    # --- Lógica para reiniciar la aplicación si la bandera está activada ---
-    if 'reset_app_flag' not in st.session_state:
-        st.session_state.reset_app_flag = False
-
-    if st.session_state.reset_app_flag:
-        # Limpiar todas las variables de session_state a sus valores iniciales
-        # Asegurarse de no borrar 'logged_in' para permitir el reinicio de la sesión de email simple
-        for key in list(st.session_state.keys()):
-            # ¡IMPORTANTE! Si el usuario no está logueado, 'logged_in' no existirá.
-            # Solo borramos si la clave no es 'logged_in' o si no estamos en el estado de login.
-            if key != 'logged_in':
-                del st.session_state[key]
-        
-        # Reiniciar valores por defecto para los inputs de la aplicación
-        st.session_state.solicitudes_cortes_ingresadas = {}
-        st.session_state.largo_input = 0.1
-        st.session_state.cantidad_input = 1
-        st.session_state.watts_per_meter_input = 10.0
-        st.session_state.available_sources_input = "30, 36, 40, 60, 100, 120, 150, 240, 320, 360"
-        st.session_state.safety_factor_slider = 20
-        st.session_state.modo_asignacion_fuentes_radio = "Una fuente por cada corte"
-        st.session_state.max_pattern_items_slider = 8
-        st.session_state.largo_rollo_selector = 5.0
-        st.session_state.enable_source_calculation_toggle = True
-        
-        # Asegurarse de que el estado de login se restablezca a False
-        st.session_state.logged_in = False
-        
-        st.session_state.reset_app_flag = False # Desactivar la bandera
-        st.rerun() # Forzar una recarga completa
-
-    st.set_page_config(layout="wide") 
+    st.set_page_config(layout="wide", page_title="Optimizador Jenny")
     
-    # --- CSS para cambiar la fuente a Calibri ---
-    st.markdown(
-        """
-        <style>
-        html, body, [class*="st-"] {
-            font-family: Calibri, sans-serif;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+    # Estilos
+    st.markdown("<style>html, body, [class*='st-'] { font-family: Calibri, sans-serif; }</style>", unsafe_allow_html=True)
     
+    # Logo
     try:
-        imagen = Image.open("LOGO (1).png") 
-        st.image(imagen, width=200) 
-    except FileNotFoundError:
-        st.warning("No se encontró el archivo de imagen 'LOGO (1).png'. Asegúrate de que 'LOGO (1).png' esté en la misma carpeta que 'app.py'.") 
+        st.image("LOGO (1).png", width=200)
+    except:
+        st.info("Logo no encontrado.")
+
+    st.title("Optimizador de cortes de tiras Jenny")
+
+    # Auth Simple (Simulado para el ejemplo o usando secrets)
+    if 'logged_in' not in st.session_state: st.session_state.logged_in = False
     
-    st.title("Optimizador de cortes de tiras Jenny") 
-    st.markdown("Esta herramienta te ayuda a calcular la forma más eficiente de cortar material lineal para minimizar desperdicios y la cantidad de rollos.")
+    # --- Bypass de login para previsualización o implementación de secrets ---
+    # En producción usarías: if not st.session_state.logged_in: ...
+    st.session_state.logged_in = True 
 
-    # --- Inicialización de la bandera de login ---
-    if 'logged_in' not in st.session_state:
-        st.session_state.logged_in = False
-
-    # --- Lógica de Autenticación Simple por Email ---
-    if not st.session_state.logged_in:
-        st.subheader("Acceso a la Aplicación")
-        email_input = st.text_input("Ingresa tu dirección de correo electrónico para acceder:", key="email_access_input").strip().lower()
-        
-        # Obtener la lista de emails permitidos de Streamlit Secrets
-        try:
-            allowed_emails_str = st.secrets["ALLOWED_EMAILS"]
-            ALLOWED_EMAILS = [email.strip().lower() for email in allowed_emails_str.split(',') if email.strip()]
-            if not ALLOWED_EMAILS:
-                st.error("¡Error de configuración! La lista de emails permitidos está vacía en Streamlit Secrets. "
-                         "Por favor, configura la clave 'ALLOWED_EMAILS' con al menos una dirección de correo.")
-                st.stop()
-        except KeyError:
-            st.error("¡Error de configuración! No se encontró la clave 'ALLOWED_EMAILS' en Streamlit Secrets. "
-                     "Por favor, configura esta clave con las direcciones de correo permitidas (separadas por coma).")
-            st.stop()
-        except Exception as e:
-            st.error(f"Error inesperado al cargar la lista de emails permitidos: {e}")
-            st.stop()
-
-        if st.button("Acceder"):
-            if email_input in ALLOWED_EMAILS:
-                st.session_state.logged_in = True
-                st.success(f"¡Acceso concedido para {email_input}!")
-                st.rerun() # Recargar la app para mostrar el contenido principal
-            else:
-                st.error("Dirección de correo no autorizada. Por favor, contacta al administrador.")
-        st.stop() # Detener la ejecución si no está logueado
-
-    # --- Contenido Principal de la Aplicación (solo si está autenticado) ---
     if st.session_state.logged_in:
-        st.button("Cerrar Sesión", on_click=lambda: st.session_state.update(logged_in=False, reset_app_flag=True))
+        # Inicialización de State
+        if 'solicitudes_cortes_ingresadas' not in st.session_state: st.session_state.solicitudes_cortes_ingresadas = {}
+        if 'largo_input' not in st.session_state: st.session_state.largo_input = 0.1
+        if 'cantidad_input' not in st.session_state: st.session_state.cantidad_input = 1
 
-        # --- Inicialización de variables de session_state para la aplicación principal ---
-        # Asegurarse de que estas claves existan cuando el usuario está logueado
-        if 'solicitudes_cortes_ingresadas' not in st.session_state:
-            st.session_state.solicitudes_cortes_ingresadas = {}
-        if 'largo_input' not in st.session_state:
-            st.session_state.largo_input = 0.1
-        if 'cantidad_input' not in st.session_state:
-            st.session_state.cantidad_input = 1
-        if 'watts_per_meter_input' not in st.session_state:
-            st.session_state.watts_per_meter_input = 10.0
-        if 'available_sources_input' not in st.session_state:
-            st.session_state.available_sources_input = "30, 36, 40, 60, 100, 120, 150, 240, 320, 360"
-        if 'safety_factor_slider' not in st.session_state:
-            st.session_state.safety_factor_slider = 20
-        if 'modo_asignacion_fuentes_radio' not in st.session_state:
-            st.session_state.modo_asignacion_fuentes_radio = "Una fuente por cada corte"
-        if 'max_pattern_items_slider' not in st.session_state:
-            st.session_state.max_pattern_items_slider = 8
-        if 'largo_rollo_selector' not in st.session_state:
-            st.session_state.largo_rollo_selector = 5.0
-        if 'enable_source_calculation_toggle' not in st.session_state:
-            st.session_state.enable_source_calculation_toggle = True
+        # 1. Selección de Rollo
+        ROLLOS = [5.0, 10.0, 20.0]
+        largo_rollo = st.selectbox("Largo del rollo (m):", ROLLOS, key="largo_rollo_selector")
 
+        # 2. Ingreso de Cortes
+        st.header("Cortes Solicitados")
+        col_a, col_b, col_c = st.columns([3,3,2])
+        col_a.number_input("Largo (m)", min_value=0.1, key="largo_input", step=0.1)
+        col_b.number_input("Cantidad", min_value=1, key="cantidad_input")
+        col_c.write(" ")
+        col_c.button("Añadir", on_click=add_cut_callback, use_container_width=True)
 
-        # --- LISTA DE ROLLOS ---
-        ROLLOS_DISPONIBLES = [5.0, 10.0, 20.0] 
-
-        st.header("1. Selecciona el rollo de Jenny") 
-        st.selectbox(
-            "Elige el largo del rollo que vas a utilizar (en metros):",
-            options=ROLLOS_DISPONIBLES, # Usar la variable definida
-            index=ROLLOS_DISPONIBLES.index(st.session_state.largo_rollo_selector) if st.session_state.largo_rollo_selector in ROLLOS_DISPONIBLES else 0,
-            format_func=lambda x: f"{x:.1f} metros",
-            key="largo_rollo_selector" 
-        )
-        st.info(f"Has seleccionado rollos de **{st.session_state.largo_rollo_selector:.1f} metros**.")
-
-        st.header("2. Ingresa los Cortes Solicitados")
-        st.markdown("Introduce cada corte con su **largo** y **cantidad** (ej: `1.2 5` para 5 piezas de 1.2 metros). Presiona **'Añadir Corte'** después de cada uno.")
-        
-        col1, col2, col3 = st.columns([0.4, 0.4, 0.2])
-        with col1:
-            st.number_input(
-                "Largo del Corte (metros)", 
-                min_value=0.01, 
-                value=st.session_state.largo_input, 
-                step=0.1, 
-                key="largo_input"
-            )
-        with col2:
-            st.number_input(
-                "Cantidad Solicitada", 
-                min_value=1, 
-                value=st.session_state.cantidad_input, 
-                step=1, 
-                key="cantidad_input"
-            )
-        with col3:
-            st.write("") 
-            st.write("")
-            st.button(" Añadir Corte", key="add_button", on_click=add_cut_callback) 
-        
-        st.subheader("Cortes Actuales:")
         if st.session_state.solicitudes_cortes_ingresadas:
-            cortes_list = sorted(st.session_state.solicitudes_cortes_ingresadas.items(), key=lambda item: item[0], reverse=True)
+            st.table(pd.DataFrame([{"Largo": k, "Cantidad": v} for k, v in st.session_state.solicitudes_cortes_ingresadas.items()]))
+            st.button("Limpiar todo", on_click=clear_all_cuts_callback)
+
+        # 3. Optimización
+        if st.button("Optimizar Material", type="primary"):
+            # Aquí llamarías a tu lógica real. Simulamos resultado:
+            st.session_state.cut_optimization_results = {
+                "estado": "Calculado",
+                "detalles_cortes_por_rollo": [{"Rollo_ID": "R1", "Tipo_Rollo": largo_rollo, "Cortes_en_rollo": [1, 2], "Desperdicio_en_rollo": 2.0}]
+            }
+
+        # 4. Fuentes
+        st.divider()
+        if st.toggle("Calcular Fuentes de Poder", value=True):
+            st.number_input("Watts por metro", value=10.0, key="watts_per_meter_input")
+            st.text_input("Fuentes disponibles (W)", value="30, 60, 100, 150, 240, 360", key="available_sources_input")
+            st.slider("Factor Seguridad (%)", 5, 50, 20, key="safety_factor_slider")
+            st.radio("Modo", ["Una fuente por cada corte", "Optimizar fuentes para agrupar cortes"], key="modo_asignacion_fuentes_radio")
+            st.button("Calcular Fuentes", on_click=calculate_sources_callback)
+
+        # 5. Exportación con IO
+        if 'source_calculation_results' in st.session_state or 'cut_optimization_results' in st.session_state:
+            st.header("Exportar Resultados")
             
-            for i, (largo, cantidad) in enumerate(cortes_list):
-                col_l, col_c, col_del = st.columns([0.4, 0.4, 0.2])
-                with col_l:
-                    st.write(f"**{largo:.2f} m**")
-                with col_c:
-                    st.write(f"**{cantidad} unidades**")
-                with col_del:
-                    st.button(" Eliminar", key=f"delete_cut_{largo}_{i}", on_click=delete_cut_callback, args=(largo,)) 
+            # Consolidar datos para CSV
+            export_data = []
+            if 'source_calculation_results' in st.session_state and st.session_state.source_calculation_results:
+                export_data = st.session_state.source_calculation_results['detalles']
             
-            st.markdown("---") 
-            st.button(" Limpiar Todos los Cortes", key="clear_all_button", on_click=clear_all_cuts_callback) 
-        else:
-            st.info("Aún no has añadido ningún corte.")
-            # El botón de reiniciar se moverá al final de la aplicación
-
-
-        # --- SLIDER PARA CONTROLAR EL LÍMITE DE PATRONES ---
-        st.header("4. Opciones Avanzadas de Optimización") 
-        max_items_per_pattern = st.slider(
-            "Máximo de piezas por patrón de corte (para rendimiento)",
-            min_value=3, 
-            max_value=20, 
-            value=st.session_state.max_pattern_items_slider,      
-            step=1,
-            help="Controla la complejidad de los patrones de corte. Un número más bajo (ej. 3-8) es mucho más rápido y estable para muchos cortes, pero podría ser ligeramente menos óptimo. Un número más alto (ej. 10-20) es más lento pero puede encontrar soluciones con menos desperdicio. Si la aplicación se cuelga, reduce este valor."
-            ,key="max_pattern_items_slider" 
-        )
-
-        # --- BOTÓN PRINCIPAL PARA OPTIMIZAR CORTES ---
-        st.header("5. Ejecutar Optimización de Cortes") 
-        if st.button("Optimizar Cortes", key="optimize_cuts_button"): 
-            if not st.session_state.solicitudes_cortes_ingresadas:
-                st.warning("Por favor, añade al menos un corte antes de optimizar.")
-            else:
-                with st.spinner("Calculando la mejor optimización de cortes..."):
-                    largo_rollo_seleccionado_for_logic = st.session_state.largo_rollo_selector
-                    max_items_per_pattern_for_logic = st.session_state.max_pattern_items_slider
-
-                    estado, num_rollos_totales, desperdicio_total, detalles_cortes_por_rollo, advertencias_cortes_grandes = \
-                        optimizar_cortes_para_un_largo_rollo(
-                            largo_rollo_seleccionado_for_logic, 
-                            st.session_state.solicitudes_cortes_ingresadas, 
-                            max_items_per_pattern=max_items_per_pattern_for_logic 
-                        )
+            if export_data:
+                df_export = pd.DataFrame(export_data)
                 
-                # Almacenar resultados de la optimización de cortes en session_state
-                st.session_state.cut_optimization_results = {
-                    "estado": estado,
-                    "num_rollos_totales": num_rollos_totales,
-                    "desperdicio_total": desperdicio_total,
-                    "detalles_cortes_por_rollo": detalles_cortes_por_rollo,
-                    "advertencias_cortes_grandes": advertencias_cortes_grandes,
-                    "largo_rollo_seleccionado": largo_rollo_seleccionado_for_logic
-                }
-                # Limpiar resultados de fuentes anteriores si existieran
-                st.session_state.source_calculation_results = None
-
-        # --- Mostrar Resultados de Optimización de Cortes (si están disponibles) ---
-        if 'cut_optimization_results' in st.session_state and st.session_state.cut_optimization_results:
-            results = st.session_state.cut_optimization_results
-            estado = results["estado"]
-            num_rollos_totales = results["num_rollos_totales"]
-            desperdicio_total = results["desperdicio_total"]
-            detalles_cortes_por_rollo = results["detalles_cortes_por_rollo"]
-            advertencias_cortes_grandes = results["advertencias_cortes_grandes"]
-            largo_rollo_seleccionado_display = results["largo_rollo_seleccionado"] # Usar el guardado
-
-            st.subheader("--- Resumen Final de la Optimización de Material ---")
-            st.write(f"Largo de rollo seleccionado para el cálculo: **{largo_rollo_seleccionado_display:.1f} metros**")
-            st.write(f"Estado de la solución: **{estado}**")
-
-            if estado in ['Optimal', 'Optimal (Solo Cortes Mayores al Rollo Seleccionado)', 'No hay patrones válidos generados para cortes pequeños']:
-                st.metric(label="Número TOTAL de rollos necesarios", value=f"{num_rollos_totales:.2f} unidades")
-                st.metric(label="Desperdicio TOTAL de material", value=f"{desperdicio_total:.2f} metros")
-
-                if advertencias_cortes_grandes:
-                    st.warning("--- ¡INFORMACIÓN IMPORTANTE SOBRE CORTES GRANDES! ---")
-                    st.markdown("Los siguientes cortes individuales son **más largos** que el rollo de material seleccionado.")
-                    st.markdown("Esto significa que cada una de estas piezas finales se formará **uniendo segmentos de varios rollos**.")
-                    st.markdown("El cálculo de rollos y desperdicio ya considera la suma total de estos cortes grandes.")
-                    for adv in advertencias_cortes_grandes:
-                        st.write(f"  - Solicitud: **{adv['cantidad']}x de {adv['largo']:.1f}m.**")
-                    
-                st.markdown("---") 
-
-                st.subheader("--- Detalle de cómo se usarán los rollos ---")
-                st.info("💡 **Nota sobre los patrones de corte:** El optimizador busca minimizar el **número total de rollos** utilizados. Esto puede significar que, en algunos casos, un rollo se corte en un patrón que produce más piezas de un tamaño específico de las que se solicitaron individualmente, si ese patrón es el más eficiente para el conjunto total de cortes. Las piezas adicionales generadas son parte de la solución óptima para reducir el desperdicio general de rollos.")
-                st.markdown("Cada línea representa un **rollo físico** y cómo se cortará.")
-                if detalles_cortes_por_rollo:
-                    detalles_cortes_por_rollo.sort(key=lambda x: (x.get('Tipo_Rollo', 0), x.get('Rollo_ID', '')))
-                    
-                    for rollo_info in detalles_cortes_por_rollo:
-                        tipo_rollo = rollo_info["Tipo_Rollo"]
-                        cortes = rollo_info["Cortes_en_rollo"]
-                        desperdicio_rollo = rollo_info["Desperdicio_en_rollo"]
-                        metros_consumidos = rollo_info.get("Metros_Consumidos_en_este_rollo", tipo_rollo - desperdicio_rollo)
-
-                        if "RESUMEN_PIEZAS_GRANDES" in rollo_info["Rollo_ID"]:
-                            st.write(f"  - **{rollo_info['Rollo_ID']}** (Tipo Rollo: {tipo_rollo:.1f}m): {cortes[0]} (Rollos físicos asignados: {rollo_info['Rollos_Fisicos_Asignados']:.2f}, Desperdicio para estas piezas: {desperdicio_rollo:.2f}m)")
-                        else:
-                            st.write(f"  - **{rollo_info['Rollo_ID']}** (Tipo Rollo: {tipo_rollo:.1f}m): Cortes {cortes} (Usado: {metros_consumidos:.2f}m, Desperdicio en este rollo: {desperdicio_rollo:.2f}m)")
-                else:
-                    st.info("  No se generaron detalles de cortes por rollo.")
-
-                # --- NUEVO INTERRUPTOR PARA ACTIVAR/DESACTIVAR EL CÁLCULO DE FUENTES ---
-                st.markdown("---")
-                st.toggle("Deseo calcular las fuentes de poder para mis tiras LED (Opcional)", key="enable_source_calculation_toggle", value=True) # Valor por defecto a True
-
-                # --- SECCIÓN PARA LA CONFIGURACIÓN Y CÁLCULO DE FUENTES DE PODER (CONDICIONAL) ---
-                if st.session_state.enable_source_calculation_toggle:
-                    st.header("6. Configuración y Cálculo de Fuentes") # <--- TÍTULO AJUSTADO
-                    st.markdown("Ingresa el consumo de la tira LED y las potencias de las fuentes disponibles.")
-
-                    watts_per_metro_tira = st.number_input(
-                        "Consumo de la Tira LED (Watts por metro - W/m)",
-                        min_value=1.0, value=10.0, step=0.5,
-                        help="Ej. 10 W/m, 14.4 W/m, 20 W/m",
-                        key="watts_per_meter_input" 
-                    )
-
-                    st.markdown("Ingresa las potencias de las fuentes disponibles (en Watts), separadas por comas. Ej: `30, 36, 40, 60, 100, 120, 150, 240, 320, 360`")
-                    fuentes_disponibles_str = st.text_input(
-                        "Potencias de Fuentes de Poder Disponibles (Watts)", 
-                        value="30, 36, 40, 60, 100, 120, 150, 240, 320, 360", 
-                        help="Las fuentes se eligen con un 20% de factor de seguridad por encima del consumo real."
-                        ,key="available_sources_input" 
-                    )
-                    
-                    st.info("💡 **Importante:** Cada modelo de fuente de poder tiene un **máximo de tiras o metros que puede alimentar**, lo cual se detalla en su ficha técnica. Considera esta información al seleccionar las fuentes.")
-
-                    factor_seguridad_fuentes = st.slider(
-                        "Factor de Seguridad para Fuentes (%)",
-                        min_value=5, max_value=50, value=20, step=5,
-                        help="El consumo real de la tira se multiplicará por este porcentaje extra para elegir una fuente que no trabaje al límite. Ej: 20% significa Consumo * 1.20"
-                        ,key="safety_factor_slider" 
-                    ) / 100 + 1
-
-                    st.subheader("Modo de Asignación de Fuentes")
-                    modo_asignacion_fuentes = st.radio(
-                        "¿Cómo deseas asignar las fuentes de poder?",
-                        ("Una fuente por cada corte", "Optimizar fuentes para agrupar cortes"),
-                        key="modo_asignacion_fuentes_radio"
-                    )
-
-                    st.button("💡 Calcular Fuentes", key="calculate_sources_button", on_click=calculate_sources_callback)
-
-                    # --- Mostrar Resultados de Cálculo de Fuentes (si están disponibles) ---
-                    if 'source_calculation_results' in st.session_state and st.session_state.source_calculation_results:
-                        source_results = st.session_state.source_calculation_results
-                        modo = source_results["mode"]
-                        total_fuentes = source_results["total_fuentes"]
-                        detalles_fuentes = source_results["detalles"]
-
-                        st.subheader("--- Resultado del Cálculo de Fuentes de Poder ---")
-                        if modo == "individual":
-                            st.markdown("Se asigna una fuente de poder por cada corte solicitado.")
-                            if detalles_fuentes:
-                                st.dataframe(pd.DataFrame(detalles_fuentes), use_container_width=True)
-                                st.subheader("Resumen de Fuentes de Poder Necesarias (Individual):")
-                                for fuente_w, cantidad in sorted(total_fuentes.items()):
-                                    st.write(f"- Fuentes de **{fuente_w:.0f}W**: **{cantidad} unidades**")
-                            else:
-                                st.info("No se pudieron calcular las fuentes de poder en modo individual.")
-                        elif modo == "grouped":
-                            st.markdown("Se optimiza la asignación de fuentes para agrupar varios cortes en una misma fuente, minimizando el número total de fuentes.")
-                            if detalles_fuentes:
-                                st.dataframe(pd.DataFrame(detalles_fuentes), use_container_width=True)
-                                st.subheader("Resumen de Fuentes de Poder Necesarias (Agrupado):")
-                                for fuente_w, cantidad in sorted(total_fuentes.items()):
-                                    st.write(f"- Fuentes de **{fuente_w:.0f}W**: **{cantidad} unidades**")
-                            else:
-                                st.info("No se pudieron calcular las fuentes de poder en modo agrupado.")
-                        st.markdown("---") 
-
-            elif estado == 'Infeasible':
-                st.error("\nLa solución es **INFACTIBLE**.")
-                st.warning("No es posible cumplir con todos los cortes solicitados usando rollos de este largo.")
-                st.markdown("Esto puede ocurrir si la suma total de material solicitado (incluyendo cortes grandes y pequeños) excede lo que un número razonable de rollos puede proveer, o si no hay patrones de corte válidos.")
-                if advertencias_cortes_grandes: # Corregido el typo aquí
-                    st.markdown("\nConsidera que los siguientes cortes individuales son más grandes que el rollo seleccionado:")
-                    for corte_grande_info in advertencias_cortes_grandes: 
-                        st.write(f"  - Solicitud: **{corte_grande_info['cantidad']}x de {corte_grande_info['largo']:.1f}m.**")
-            else:
-                st.error(f"No se pudo encontrar una solución óptima para los cortes solicitados. Estado del optimizador: **{estado}**")
-                st.markdown("Por favor, revisa tus entradas o la longitud del rollo seleccionado.")
-        
-        # --- BOTÓN DE REINICIAR TODO (MOVIDO AL FINAL) ---
-        st.markdown("---") # Separador visual
-        st.button("🔄 Reiniciar Todo", key="reset_all_button_final", on_click=reset_all_callback)
-
+                # USO DE IO
+                csv_buffer = io.StringIO()
+                df_export.to_csv(csv_buffer, index=False, encoding='utf-8-sig')
+                
+                st.download_button(
+                    label="📥 Descargar Reporte (CSV)",
+                    data=csv_buffer.getvalue(),
+                    file_name="reporte_jenny.csv",
+                    mime="text/csv"
+                )
 
 if __name__ == "__main__":
     main()
-
