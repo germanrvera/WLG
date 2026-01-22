@@ -1,25 +1,14 @@
-# optimizador_logic.py
 from pulp import *
 import collections
 import math
 
-# Asegúrate de que esta función acepte max_items_per_pattern
 def optimizar_cortes_para_un_largo_rollo(largo_rollo_seleccionado, solicitudes_cortes, max_items_per_pattern=None):
     """
-    Optimiza el corte de material lineal para un único largo de rollo seleccionado,
-    minimizando el número de rollos y el desperdicio.
-    Maneja cortes muy grandes por separado para alinear con la expectativa de desperdicio cero
-    si el total de metros de estos cortes es un múltiplo del rollo.
-
-    Args:
-        largo_rollo_seleccionado (float): La longitud del rollo que se usará para todos los cortes.
-        solicitudes_cortes (dict): Un diccionario donde la clave es el largo del corte
-                                   (float) y el valor es la cantidad solicitada (int).
-        max_items_per_pattern (int, optional): Número máximo de piezas individuales en un patrón de corte.
-                                                Útil para controlar la complejidad y el rendimiento.
+    Optimiza el corte de material lineal para un único largo de rollo seleccionado.
+    Utiliza programación dinámica para generar patrones y programación lineal para minimizar rollos.
     """
 
-    # --- 1. Pre-procesar solicitudes: Separar cortes que exceden el rollo seleccionado ---
+    # --- 1. Pre-procesar solicitudes: Separar cortes que exceden el rollo ---
     cortes_para_optimizar = {}
     cortes_grandes_externos = [] 
 
@@ -27,16 +16,16 @@ def optimizar_cortes_para_un_largo_rollo(largo_rollo_seleccionado, solicitudes_c
         if largo > largo_rollo_seleccionado:
             cortes_grandes_externos.append({"largo": largo, "cantidad": cantidad})
         else:
-            cortes_para_optimizar[largo] = cortes_para_optimizar.get(largo, 0) + cantidad
+            if cantidad > 0:
+                cortes_para_optimizar[largo] = cortes_para_optimizar.get(largo, 0) + cantidad
 
-    # --- Procesar cortes grandes externos: Calculamos su contribución a rollos y desperdicio ---
+    # Procesar cortes grandes externos
     total_rollos_grandes_externas = 0
     total_desperdicio_grandes_externas = 0
     detalles_cortes_grandes_externos_formateados = []
 
     if cortes_grandes_externos:
         total_metros_requeridos_grandes = sum(c['largo'] * c['cantidad'] for c in cortes_grandes_externos)
-        
         num_rollos_para_total_grandes = math.ceil(total_metros_requeridos_grandes / largo_rollo_seleccionado)
         
         material_consumido_para_grandes = num_rollos_para_total_grandes * largo_rollo_seleccionado
@@ -48,115 +37,113 @@ def optimizar_cortes_para_un_largo_rollo(largo_rollo_seleccionado, solicitudes_c
         detalles_cortes_grandes_externos_formateados.append({
             "Rollo_ID": "RESUMEN_PIEZAS_GRANDES",
             "Tipo_Rollo": largo_rollo_seleccionado,
-            "Cortes_en_rollo": [f"TOTAL {total_metros_requeridos_grandes:.1f}m (para {sum(c['cantidad'] for c in cortes_grandes_externos)} piezas grandes > {largo_rollo_seleccionado:.1f}m)"],
+            "Cortes_en_rollo": [f"TOTAL {total_metros_requeridos_grandes:.1f}m (Piezas > {largo_rollo_seleccionado:.1f}m)"],
             "Desperdicio_en_rollo": desperdicio_para_total_grandes,
             "Metros_Consumidos_para_esta_pieza": total_metros_requeridos_grandes, 
             "Rollos_Fisicos_Asignados": num_rollos_para_total_grandes 
         })
         
     if not cortes_para_optimizar:
-        return "Optimal (Solo Cortes Mayores al Rollo Seleccionado)", \
+        return "Optimal (Solo Piezas Grandes)", \
                total_rollos_grandes_externas, \
                total_desperdicio_grandes_externas, \
                detalles_cortes_grandes_externos_formateados, \
                cortes_grandes_externos
 
+    # --- 2. Generar patrones de corte válidos (Programación Dinámica) ---
+    largos_unicos = sorted(cortes_para_optimizar.keys(), reverse=True)
+    
+    def generar_patrones_eficiente(capacidad, items, max_items):
+        # dp[w] guardará una lista de patrones (tuplas) que suman exactamente w o menos
+        # Para evitar explosión de memoria, limitamos a patrones únicos útiles
+        patrones_por_peso = collections.defaultdict(set)
+        patrones_por_peso[0].add(())
 
-    # --- 2. Generar patrones de corte válidos para el largo de rollo seleccionado (solo para cortes_para_optimizar) ---
-    largos_unicos_a_optimizar = sorted(list(cortes_para_optimizar.keys()), reverse=True)
+        for item_largo in items:
+            # Cantidad máxima de este item que cabe en un rollo
+            max_posible = int(capacidad // item_largo)
+            # Si hay restricción de items totales, respetarla
+            if max_items:
+                max_posible = min(max_posible, max_items)
+            
+            for peso_actual in range(int(capacidad), int(item_largo) - 1, -1):
+                for cant in range(1, max_posible + 1):
+                    peso_nuevo = peso_actual - (cant * item_largo)
+                    if peso_nuevo >= 0:
+                        for p in patrones_por_peso[peso_nuevo]:
+                            nuevo_p = tuple(sorted(list(p) + [item_largo] * cant))
+                            if max_items is None or len(nuevo_p) <= max_items:
+                                if sum(nuevo_p) <= capacidad:
+                                    patrones_por_peso[peso_actual].add(nuevo_p)
 
-    # La función interna también debe aceptar max_items
-    def generar_todos_los_patrones(largos_disponibles, largo_maximo_patron, current_pattern=[], max_items=None):
-        patrones = []
-        suma_actual = sum(current_pattern)
+        # Consolidar todos los patrones encontrados en todas las capacidades
+        todos = set()
+        for p_set in patrones_por_peso.values():
+            todos.update(p_set)
+        
+        # Eliminar el patrón vacío y filtrar patrones que no sirven (sub-patrones de otros)
+        resultado = [p for p in todos if p]
+        return resultado
 
-        # Si el patrón actual excede el número máximo de ítems permitidos, lo ignoramos
-        if max_items is not None and len(current_pattern) >= max_items:
-            # Si ya tenemos un patrón válido (no vacío y que cabe), lo añadimos antes de detener la recursión
-            if suma_actual <= largo_maximo_patron and current_pattern:
-                patrones.append(current_pattern)
-            return patrones
-
-        # Si el patrón actual es válido (no excede el largo del rollo) y no está vacío, lo agregamos
-        if suma_actual <= largo_maximo_patron and current_pattern:
-            patrones.append(current_pattern)
-
-        for i, largo in enumerate(largos_disponibles):
-            # Si al agregar el siguiente corte, no excedemos el largo del rollo
-            if suma_actual + largo <= largo_maximo_patron:
-                nuevos_patrones = generar_todos_los_patrones(
-                    largos_disponibles[i:], largo_maximo_patron, current_pattern + [largo], max_items # Pasa max_items
-                )
-                patrones.extend(nuevos_patrones)
-        return patrones
-
-    # Llamar a la función de generación de patrones con el nuevo límite
-    todos_los_patrones = [
-        tuple(sorted(p)) for p in generar_todos_los_patrones(largos_unicos_a_optimizar, largo_rollo_seleccionado, max_items=max_items_per_pattern) # Pasa max_items_per_pattern
-    ]
-    patrones_unicos = list(collections.OrderedDict.fromkeys(todos_los_patrones))
+    # Generamos los patrones
+    patrones_unicos = generar_patrones_eficiente(largo_rollo_seleccionado, largos_unicos, max_items_per_pattern)
 
     if not patrones_unicos:
-        return "No hay patrones válidos generados para cortes pequeños", \
-               total_rollos_grandes_externas, \
-               total_desperdicio_grandes_externas, \
-               detalles_cortes_grandes_externos_formateados, \
-               cortes_grandes_externos
+        return "Infeasible (No se generaron patrones)", 0, 0, [], []
 
-    # --- 3. Crear el modelo de optimización (Problema de Programación Lineal) ---
-    problema = LpProblem("Minimizar Desperdicio de Corte", LpMinimize)
+    # --- 3. Modelo de Optimización (PuLP) ---
+    problema = LpProblem("Minimizar_Rollos", LpMinimize)
+    
+    # Variables: x[i] es la cantidad de veces que usamos el patrón i
+    x = LpVariable.dicts("P", range(len(patrones_unicos)), 0, None, LpInteger)
 
-    # Variables de decisión: x[i] = cuántas veces usamos el patrón i
-    x = LpVariable.dicts("UsoPatron", range(len(patrones_unicos)), 0, None, LpInteger)
+    # Objetivo: Minimizar total de rollos
+    problema += lpSum([x[i] for i in range(len(patrones_unicos))])
 
-    # --- 4. Función Objetivo: Minimizar el número total de rollos utilizados ---
-    problema += lpSum([x[i] for i in range(len(patrones_unicos))]), "Total de Rollos Usados"
+    # Restricciones: Satisfacer demanda de cada corte
+    for largo in largos_unicos:
+        demanda = cortes_para_optimizar[largo]
+        problema += lpSum([x[i] * patrones_unicos[i].count(largo) for i in range(len(patrones_unicos))]) >= demanda
 
-    # --- 5. Restricciones: Asegurarse de que todos los cortes solicitados se cumplan ---
-    for largo_requerido, cantidad_solicitada in cortes_para_optimizar.items():
-        problema += lpSum([
-            x[i] * patrones_unicos[i].count(largo_requerido)
-            for i in range(len(patrones_unicos))
-        ]) >= cantidad_solicitada, f"Cumplir_Corte_{largo_requerido}"
-
-    # --- 6. Resolver el problema ---
-    problema.solve()
-
-    # --- 7. Procesar y devolver los resultados ---
+    # Resolver
+    # msg=0 desactiva los logs de consola de PuLP
+    problema.solve(PULP_CBC_CMD(msg=0))
+    
     estado_solucion = LpStatus[problema.status]
 
-    num_rollos_optimizador = 0
-    desperdicio_optimizador = 0
-    detalles_cortes_optimizador_formateados = []
-
-    if estado_solucion == 'Optimal':
-        num_rollos_optimizador = problema.objective.value()
-        
-        total_cortado_necesario_optimizador = sum(l * c for l, c in cortes_para_optimizar.items())
-        desperdicio_optimizador = (num_rollos_optimizador * largo_rollo_seleccionado) - total_cortado_necesario_optimizador
-        
-        rollo_id_contador_opt = 1
-        for i in range(len(patrones_unicos)):
-            num_usos_patron = int(x[i].varValue)
-            if num_usos_patron > 0:
-                for _ in range(num_usos_patron):
-                    patron_actual = list(patrones_unicos[i])
-                    uso_material_en_patron = sum(patron_actual)
-                    desperdicio_en_este_rollo = largo_rollo_seleccionado - uso_material_en_patron
-                    
-                    detalles_cortes_optimizador_formateados.append({
-                        "Rollo_ID": f"Opt-Rollo-{rollo_id_contador_opt}",
-                        "Tipo_Rollo": largo_rollo_seleccionado,
-                        "Cortes_en_rollo": patron_actual,
-                        "Desperdicio_en_rollo": desperdicio_en_este_rollo,
-                        "Metros_Consumidos_en_este_rollo": uso_material_en_patron
-                    })
-                    rollo_id_contador_opt += 1
-
-    # Consolidar todos los resultados (cortes grandes externos + optimizados)
-    num_rollos_totales_final = num_rollos_optimizador + total_rollos_grandes_externas
-    desperdicio_total_final = desperdicio_optimizador + total_desperdicio_grandes_externas
+    detalles_optimizador = []
+    num_rollos_opt = 0
     
-    todos_los_detalles_de_rollos = detalles_cortes_grandes_externos_formateados + detalles_cortes_optimizador_formateados
+    if estado_solucion == 'Optimal':
+        num_rollos_opt = int(value(problema.objective))
+        
+        id_cnt = 1
+        for i in range(len(patrones_unicos)):
+            usos = int(x[i].varValue)
+            if usos > 0:
+                for _ in range(usos):
+                    patron = list(patrones_unicos[i])
+                    consumo = sum(patron)
+                    detalles_optimizador.append({
+                        "Rollo_ID": f"Opt-Rollo-{id_cnt}",
+                        "Tipo_Rollo": largo_rollo_seleccionado,
+                        "Cortes_en_rollo": patron,
+                        "Desperdicio_en_rollo": largo_rollo_seleccionado - consumo,
+                        "Metros_Consumidos_en_este_rollo": consumo
+                    })
+                    id_cnt += 1
 
-    return estado_solucion, num_rollos_totales_final, desperdicio_total_final, todos_los_detalles_de_rollos, cortes_grandes_externos
+    # Consolidar resultados finales
+    num_rollos_totales = num_rollos_opt + total_rollos_grandes_externas
+    
+    # El desperdicio se calcula sobre el material total comprado vs material realmente pedido
+    total_pedido_neto = sum(l * c for l, c in solicitudes_cortes.items())
+    desperdicio_total = (num_rollos_totales * largo_rollo_seleccionado) - total_pedido_neto
+
+    return (
+        estado_solucion, 
+        num_rollos_totales, 
+        max(0, desperdicio_total), 
+        detalles_cortes_grandes_externos_formateados + detalles_optimizador, 
+        cortes_grandes_externos
+    )
